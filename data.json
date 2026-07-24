@@ -1,0 +1,148 @@
+{
+  "docs": {
+    "synced_at": 0,
+    "items": [
+      {
+        "id": 1,
+        "title": "2024 Q3 季度规划",
+        "desc": "本季度核心目标、关键结果与里程碑节点拆解，包含各团队 OKR 对齐说明。",
+        "cat": "work",
+        "star": true,
+        "url": "",
+        "time": 1784742209546
+      },
+      {
+        "id": 2,
+        "title": "React 18 新特性笔记",
+        "desc": "并发渲染、自动批处理、Suspense 的实战用法与踩坑记录。",
+        "cat": "tech",
+        "star": true,
+        "url": "",
+        "time": 1784483009546
+      },
+      {
+        "id": 3,
+        "title": "机器学习入门路线",
+        "desc": "从数学基础到深度学习的完整学习路径，含推荐书籍与课程。",
+        "cat": "study",
+        "star": false,
+        "url": "",
+        "time": 1784310209546
+      },
+      {
+        "id": 4,
+        "title": "周末旅行计划",
+        "desc": "杭州三日游路线、住宿与餐厅推荐，预算控制在 2000 元内。",
+        "cat": "life",
+        "star": false,
+        "url": "",
+        "time": 1784051009546
+      },
+      {
+        "id": 5,
+        "title": "产品需求文档 v2.3",
+        "desc": "用户中心改版需求，包含用户调研结论、交互原型与验收标准。",
+        "cat": "work",
+        "star": false,
+        "url": "",
+        "time": 1783878209546
+      },
+      {
+        "id": 6,
+        "title": "TypeScript 高级类型",
+        "desc": "条件类型、映射类型、模板字面量类型的实际应用场景。",
+        "cat": "tech",
+        "star": true,
+        "url": "",
+        "time": 1783619009546
+      }
+    ]
+  },
+  "video": {
+    "synced_at": 0,
+    "headers": [],
+    "rows": []
+  },
+  "reading": {
+    "synced_at": 0,
+    "headers": [],
+    "rows": []
+  },
+  "orders": {
+    "synced_at": 0,
+    "items": [
+      {
+        "id": "#20240724-001",
+        "customer": "张明",
+        "cat": "数码",
+        "amount": "¥3,299",
+        "status": "已完成",
+        "tag": "green",
+        "time": "10分钟前"
+      },
+      {
+        "id": "#20240724-002",
+        "customer": "李华",
+        "cat": "服饰",
+        "amount": "¥599",
+        "status": "处理中",
+        "tag": "orange",
+        "time": "32分钟前"
+      },
+      {
+        "id": "#20240724-003",
+        "customer": "王芳",
+        "cat": "食品",
+        "amount": "¥128",
+        "status": "已完成",
+        "tag": "green",
+        "time": "1小时前"
+      },
+      {
+        "id": "#20240724-004",
+        "customer": "赵强",
+        "cat": "家居",
+        "amount": "¥1,580",
+        "status": "已取消",
+        "tag": "gray",
+        "time": "2小时前"
+      },
+      {
+        "id": "#20240723-008",
+        "customer": "陈静",
+        "cat": "美妆",
+        "amount": "¥459",
+        "status": "已完成",
+        "tag": "green",
+        "time": "昨天"
+      },
+      {
+        "id": "#20240723-007",
+        "customer": "刘伟",
+        "cat": "数码",
+        "amount": "¥8,999",
+        "status": "处理中",
+        "tag": "orange",
+        "time": "昨天"
+      },
+      {
+        "id": "#20240723-006",
+        "customer": "孙莉",
+        "cat": "运动",
+        "amount": "¥799",
+        "status": "已完成",
+        "tag": "green",
+        "time": "昨天"
+      },
+      {
+        "id": "#20240722-015",
+        "customer": "周涛",
+        "cat": "服饰",
+        "amount": "¥1,099",
+        "status": "已退款",
+        "tag": "purple",
+        "time": "2天前"
+      }
+    ]
+  }
+}
