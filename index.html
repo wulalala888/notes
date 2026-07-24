@@ -1384,7 +1384,7 @@ document.getElementById('trendRange').addEventListener('click', e => {
 });
 
 /* ============ 订单表格 ============ */
-const orders = [
+let orders = [
   { id: '#20240724-001', customer: '张明', cat: '数码', amount: '¥3,299', status: '已完成', tag: 'green', time: '10分钟前' },
   { id: '#20240724-002', customer: '李华', cat: '服饰', amount: '¥599', status: '处理中', tag: 'orange', time: '32分钟前' },
   { id: '#20240724-003', customer: '王芳', cat: '食品', amount: '¥128', status: '已完成', tag: 'green', time: '1小时前' },
@@ -1394,7 +1394,10 @@ const orders = [
   { id: '#20240723-006', customer: '孙莉', cat: '运动', amount: '¥799', status: '已完成', tag: 'green', time: '昨天' },
   { id: '#20240722-015', customer: '周涛', cat: '服饰', amount: '¥1,099', status: '已退款', tag: 'purple', time: '2天前' }
 ];
-document.getElementById('orderTable').innerHTML = orders.map(o => `
+let ordersState = { synced_at: Number(localStorage.getItem('wb_orders_synced') || 0) };
+window.__ordersState = ordersState;
+function renderOrders() {
+  document.getElementById('orderTable').innerHTML = orders.map(o => `
   <tr>
     <td style="font-family:monospace;color:var(--text-secondary)">${o.id}</td>
     <td>${o.customer}</td>
@@ -1404,6 +1407,8 @@ document.getElementById('orderTable').innerHTML = orders.map(o => `
     <td style="color:var(--text-tertiary)">${o.time}</td>
   </tr>
 `).join('');
+}
+renderOrders();
 
 /* ============ 文档中心 ============ */
 const catMeta = {
@@ -1430,9 +1435,11 @@ function loadDocs() {
   saveDocs(defaultDocs);
   return defaultDocs;
 }
-function saveDocs(docs) { localStorage.setItem('workbench_docs', JSON.stringify(docs)); }
+function saveDocs(docs) { localStorage.setItem('workbench_docs', JSON.stringify(docs)); if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
 
 let docs = loadDocs();
+let docsState = { synced_at: Number(localStorage.getItem('wb_docs_synced') || 0) };
+window.__docsState = docsState;
 let currentCat = 'all';
 let currentFilter = 'all';
 
@@ -1648,7 +1655,7 @@ function loadVideo() {
   try { return JSON.parse(localStorage.getItem(VIDEO_KEY)) || { headers: [], rows: [] }; }
   catch(e) { return { headers: [], rows: [] }; }
 }
-function saveVideo() { localStorage.setItem(VIDEO_KEY, JSON.stringify(videoData)); }
+function saveVideo() { localStorage.setItem(VIDEO_KEY, JSON.stringify(videoData)); if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
 
 function toggleVideoEditMode() {
   videoEditMode = !videoEditMode;
@@ -1812,42 +1819,176 @@ document.getElementById('videoCsvModal').addEventListener('click', e => {
 });
 
 /* Video 云端同步 */
-async function syncVideoToCloud() {
-  if (videoData.rows.length === 0) return;
-  try {
-    const res = await fetch('/api/sync?key=' + VIDEO_SYNC_KEY, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(videoData)
-    });
-    const result = await res.json();
-    if (result.synced_at) {
-      videoData.synced_at = result.synced_at;
-      saveVideo();
-      updateSyncTimeDisplay(result.synced_at);
-    }
-  } catch(e) { console.warn('video sync upload failed', e); }
-}
-
-async function syncVideoFromCloud() {
-  try {
-    const res = await fetch('/api/sync?key=' + VIDEO_SYNC_KEY);
-    if (!res.ok) return false;
-    const data = await res.json();
-    if (data && data.headers && data.rows) {
-      const cloudTime = data.synced_at || 0;
-      const localTime = (videoData.synced_at) || 0;
-      if (cloudTime > localTime) {
-        videoData = data;
-        saveVideo();
-        renderVideoTable();
+/* ============ GitHub 云端同步模块（跨设备同步） ============ */
+/* 数据统一存放在仓库的 data.json，通过 GitHub Contents API 读写。
+   每台设备首次使用时在页面左下角输入一次 PAT（存于浏览器本地，绝不上源码），
+   之后任意改动会自动（防抖）推送到仓库，所有设备刷新即同步。 */
+const GH = {
+  owner: 'wulalala888',
+  repo: 'notes',
+  branch: 'main',
+  path: 'data.json',
+  tokenKey: 'wb_gh_token',
+  _pushTimer: null,
+  _pulling: null,
+  getToken() { return localStorage.getItem(this.tokenKey) || ''; },
+  setToken(t) {
+    if (t && t.trim()) localStorage.setItem(this.tokenKey, t.trim());
+    else localStorage.removeItem(this.tokenKey);
+  },
+  rawUrl() { return `https://raw.githubusercontent.com/${this.owner}/${this.repo}/${this.branch}/${this.path}`; },
+  apiUrl() { return `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${this.path}`; },
+  buildPayload() {
+    const dState = window.__docsState || { synced_at: 0 };
+    const oState = window.__ordersState || { synced_at: 0 };
+    return {
+      docs: { synced_at: dState.synced_at, items: (typeof docs !== 'undefined' ? docs : []) },
+      video: (typeof videoData !== 'undefined' ? videoData : { headers: [], rows: [], synced_at: 0 }),
+      reading: (typeof readingData !== 'undefined' ? readingData : { headers: [], rows: [], synced_at: 0 }),
+      orders: { synced_at: oState.synced_at, items: (typeof orders !== 'undefined' ? orders : []) }
+    };
+  },
+  applyCloud(data) {
+    if (!data || typeof data !== 'object') return false;
+    let changed = false;
+    // docs
+    if (data.docs && Array.isArray(data.docs.items)) {
+      const cloudT = data.docs.synced_at || 0;
+      const localT = (window.__docsState ? window.__docsState.synced_at : 0);
+      if (cloudT > localT) {
+        docs = data.docs.items;
+        if (window.__docsState) window.__docsState.synced_at = cloudT;
+        localStorage.setItem('wb_docs_synced', String(cloudT));
+        localStorage.setItem('workbench_docs', JSON.stringify(docs));
+        if (typeof renderCategories === 'function') renderCategories();
+        if (typeof renderDocs === 'function') renderDocs();
+        changed = true;
       }
-      updateSyncTimeDisplay(cloudTime);
-      return true;
     }
-  } catch(e) { console.warn('video sync download failed', e); }
-  return false;
-}
+    // video
+    if (data.video && Array.isArray(data.video.rows)) {
+      const cloudT = data.video.synced_at || 0;
+      const localT = (videoData && videoData.synced_at) || 0;
+      if (cloudT > localT) {
+        videoData = { headers: data.video.headers || [], rows: data.video.rows || [], synced_at: cloudT };
+        if (typeof saveVideo === 'function') saveVideo();
+        if (typeof renderVideoTable === 'function') renderVideoTable();
+        changed = true;
+      }
+    }
+    // reading
+    if (data.reading && Array.isArray(data.reading.rows)) {
+      const cloudT = data.reading.synced_at || 0;
+      const localT = (readingData && readingData.synced_at) || 0;
+      if (cloudT > localT) {
+        readingData = { headers: data.reading.headers || [], rows: data.reading.rows || [], synced_at: cloudT };
+        if (typeof saveReading === 'function') saveReading();
+        if (typeof renderReadingTable === 'function') renderReadingTable();
+        changed = true;
+      }
+    }
+    // orders
+    if (data.orders && Array.isArray(data.orders.items)) {
+      const cloudT = data.orders.synced_at || 0;
+      const localT = (window.__ordersState ? window.__ordersState.synced_at : 0);
+      if (cloudT > localT) {
+        orders = data.orders.items;
+        if (window.__ordersState) window.__ordersState.synced_at = cloudT;
+        localStorage.setItem('wb_orders_synced', String(cloudT));
+        localStorage.setItem('wb_orders', JSON.stringify(orders));
+        if (typeof renderOrders === 'function') renderOrders();
+        changed = true;
+      }
+    }
+    return changed;
+  },
+  async pull() {
+    if (this._pulling) return this._pulling;
+    this._pulling = (async () => {
+      try {
+        const res = await fetch(this.rawUrl(), { cache: 'no-store' });
+        if (!res.ok) return false;
+        const data = await res.json();
+        this.applyCloud(data);
+        this.updateStatus(this.getToken() ? '已同步 ' + this.fmt(Date.now()) : '本地模式');
+        return true;
+      } catch (e) { console.warn('gh pull failed', e); return false; }
+      finally { this._pulling = null; }
+    })();
+    return this._pulling;
+  },
+  async push() {
+    const token = this.getToken();
+    if (!token) { this.updateStatus('未配置令牌'); return false; }
+    // 推送前统一打上本地时间戳
+    const now = Date.now();
+    if (videoData && typeof videoData === 'object') videoData.synced_at = now;
+    if (readingData && typeof readingData === 'object') readingData.synced_at = now;
+    if (window.__docsState) { window.__docsState.synced_at = now; localStorage.setItem('wb_docs_synced', String(now)); }
+    if (window.__ordersState) { window.__ordersState.synced_at = now; localStorage.setItem('wb_orders_synced', String(now)); }
+    const payload = this.buildPayload();
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+    try {
+      let sha = null;
+      const head = await fetch(this.apiUrl(), { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' } });
+      if (head.ok) { const j = await head.json(); sha = j.sha; }
+      else if (head.status !== 404) { this.updateStatus('推送失败 (' + head.status + ')'); return false; }
+      const body = { message: 'sync: update data.json', content: content };
+      if (sha) body.sha = sha;
+      const res = await fetch(this.apiUrl(), {
+        method: 'PUT',
+        headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) { this.updateStatus('已同步 ' + this.fmt(now)); return true; }
+      const txt = await res.text();
+      console.warn('gh push failed', res.status, txt);
+      this.updateStatus('推送失败 (' + res.status + ')');
+      return false;
+    } catch (e) { console.warn('gh push error', e); this.updateStatus('推送错误'); return false; }
+  },
+  schedulePush() {
+    if (this._pushTimer) clearTimeout(this._pushTimer);
+    this._pushTimer = setTimeout(() => { this._pushTimer = null; this.push(); }, 1000);
+  },
+  fmt(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  },
+  updateStatus(text) {
+    const el = document.getElementById('ghSyncStatus');
+    if (el) el.textContent = text;
+  },
+  init() {
+    const bar = document.createElement('div');
+    bar.id = 'ghSyncBar';
+    bar.innerHTML = `<span id="ghSyncStatus">同步: ${this.getToken() ? '点此同步' : '未配置令牌'}</span>` +
+      `<button id="ghSyncBtn" style="margin-left:8px;cursor:pointer">设置令牌</button>`;
+    Object.assign(bar.style, {
+      position: 'fixed', left: '12px', bottom: '12px', zIndex: 9999,
+      background: 'rgba(20,20,30,0.85)', color: '#fff', padding: '6px 10px',
+      borderRadius: '8px', fontSize: '12px', display: 'flex', alignItems: 'center',
+      fontFamily: 'system-ui,sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+    });
+    document.body.appendChild(bar);
+    document.getElementById('ghSyncBtn').addEventListener('click', () => {
+      const cur = this.getToken();
+      const t = window.prompt('输入 GitHub 个人访问令牌（PAT，需对该仓库有 contents 写权限；仅存于本机浏览器）：', cur);
+      if (t !== null) {
+        this.setToken(t);
+        this.updateStatus(this.getToken() ? '已配置，同步中…' : '未配置令牌');
+        if (this.getToken()) this.pull().then(() => this.push());
+      }
+    });
+    return this.pull();
+  }
+};
+window.ghSchedulePush = () => GH.schedulePush();
+
+async function syncVideoToCloud() { GH.schedulePush(); }
+async function syncVideoFromCloud() { return GH.pull(); }
 
 const READING_KEY = 'workbench_reading_data';
 let readingEditMode = true; // 默认可编辑
@@ -1875,7 +2016,7 @@ function loadReading() {
   try { return JSON.parse(localStorage.getItem(READING_KEY)) || { headers: [], rows: [] }; }
   catch(e) { return { headers: [], rows: [] }; }
 }
-function saveReading() { localStorage.setItem(READING_KEY, JSON.stringify(readingData)); }
+function saveReading() { localStorage.setItem(READING_KEY, JSON.stringify(readingData)); if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
 
 /* CSV 解析：支持逗号/制表符分隔，支持带引号字段 */
 function parseCsv(text) {
@@ -2062,44 +2203,10 @@ function updateSyncTimeDisplay(ts) {
 }
 
 /* 上传数据到云端 */
-async function syncToCloud() {
-  if (readingData.rows.length === 0) return;
-  try {
-    const res = await fetch('/api/sync?key=' + SYNC_KEY, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(readingData)
-    });
-    const result = await res.json();
-    if (result.synced_at) {
-      readingData.synced_at = result.synced_at;
-      saveReading();
-      updateSyncTimeDisplay(result.synced_at);
-    }
-  } catch(e) { console.warn('sync upload failed', e); }
-}
+async function syncToCloud() { GH.schedulePush(); }
 
 /* 从云端拉取数据 */
-async function syncFromCloud() {
-  try {
-    const res = await fetch('/api/sync?key=' + SYNC_KEY);
-    if (!res.ok) return false;
-    const data = await res.json();
-    if (data && data.headers && data.rows) {
-      const cloudTime = data.synced_at || 0;
-      const localTime = (readingData.synced_at) || 0;
-      if (cloudTime > localTime) {
-        readingData = data;
-        saveReading();
-        renderReadingTable();
-      }
-      // 无论是否覆盖，都更新同步时间显示
-      updateSyncTimeDisplay(cloudTime);
-      return true;
-    }
-  } catch(e) { console.warn('sync download failed', e); }
-  return false;
-}
+async function syncFromCloud() { return GH.pull(); }
 
 function exportReadingCsv() {
   if (readingData.rows.length === 0) { toast('暂无数据可导出'); return; }
@@ -2141,15 +2248,10 @@ window.addEventListener('DOMContentLoaded', () => {
   renderVideoTable();
   // 先显示本地存储的同步时间
   if (readingData.synced_at) updateSyncTimeDisplay(readingData.synced_at);
-  // 从云端自动拉取阅读数据，拉取后刷新同步时间为当前时间
-  syncFromCloud().then(() => {
-    const now = Date.now();
-    readingData.synced_at = now;
-    saveReading();
-    updateSyncTimeDisplay(now);
+  // 云端同步初始化：拉取 data.json 并渲染同步状态栏
+  GH.init().then(() => {
+    updateSyncTimeDisplay(Date.now());
   });
-  // 从云端拉取影视清单
-  syncVideoFromCloud();
   // 恢复上次访问的视图
   let lastView = 'dashboard';
   try {
