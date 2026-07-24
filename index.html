@@ -1435,7 +1435,7 @@ function loadDocs() {
   saveDocs(defaultDocs);
   return defaultDocs;
 }
-function saveDocs(docs) { localStorage.setItem('workbench_docs', JSON.stringify(docs)); if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
+function saveDocs(docs) { localStorage.setItem('workbench_docs', JSON.stringify(docs)); (window.__dirty = window.__dirty || {}).docs = true; if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
 
 let docs = loadDocs();
 let docsState = { synced_at: Number(localStorage.getItem('wb_docs_synced') || 0) };
@@ -1655,7 +1655,7 @@ function loadVideo() {
   try { return JSON.parse(localStorage.getItem(VIDEO_KEY)) || { headers: [], rows: [] }; }
   catch(e) { return { headers: [], rows: [] }; }
 }
-function saveVideo() { localStorage.setItem(VIDEO_KEY, JSON.stringify(videoData)); if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
+function saveVideo() { localStorage.setItem(VIDEO_KEY, JSON.stringify(videoData)); (window.__dirty = window.__dirty || {}).video = true; if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
 
 function toggleVideoEditMode() {
   videoEditMode = !videoEditMode;
@@ -1787,8 +1787,7 @@ function importVideoCsv() {
   renderVideoTable();
   closeVideoCsvModal();
   document.getElementById('videoCsvInput').value = '';
-  syncVideoToCloud();
-  toast(`已导入 ${parsed.rows.length} 条记录，已同步到云端`);
+  syncVideoToCloud().then(ok => toast(ok ? `已导入 ${parsed.rows.length} 条记录，已同步到云端 ✓` : `已导入 ${parsed.rows.length} 条记录，但同步失败（请检查左下角令牌）`));
 }
 
 function exportVideoCsv() {
@@ -1823,6 +1822,7 @@ document.getElementById('videoCsvModal').addEventListener('click', e => {
 /* 数据统一存放在仓库的 data.json，通过 GitHub Contents API 读写。
    每台设备首次使用时在页面左下角输入一次 PAT（存于浏览器本地，绝不上源码），
    之后任意改动会自动（防抖）推送到仓库，所有设备刷新即同步。 */
+try { window.__dirty = JSON.parse(localStorage.getItem('wb_dirty') || '{}'); } catch (e) { window.__dirty = {}; }
 const GH = {
   owner: 'wulalala888',
   repo: 'notes',
@@ -1830,6 +1830,7 @@ const GH = {
   path: 'data.json',
   tokenKey: 'wb_gh_token',
   _pushTimer: null,
+  _pullTimer: null,
   _pulling: null,
   getToken() { return localStorage.getItem(this.tokenKey) || ''; },
   setToken(t) {
@@ -1838,133 +1839,148 @@ const GH = {
   },
   rawUrl() { return `https://raw.githubusercontent.com/${this.owner}/${this.repo}/${this.branch}/${this.path}`; },
   apiUrl() { return `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${this.path}`; },
-  buildPayload() {
-    const dState = window.__docsState || { synced_at: 0 };
-    const oState = window.__ordersState || { synced_at: 0 };
+  fmt(ts) {
+    if (!ts) return '';
+    const d = new Date(ts), p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  },
+  updateStatus(text, ok) {
+    const el = document.getElementById('ghSyncStatus');
+    if (el) { el.textContent = text; el.style.color = (ok === false) ? '#ff9a9a' : (ok === true ? '#9affb0' : '#fff'); }
+  },
+  getDirty() { return (window.__dirty = window.__dirty || {}); },
+  markDirty(f) { this.getDirty()[f] = true; this._persistDirty(); },
+  clearDirty(f) { if (window.__dirty) { delete window.__dirty[f]; this._persistDirty(); } },
+  _persistDirty() { try { localStorage.setItem('wb_dirty', JSON.stringify(window.__dirty || {})); } catch (e) {} },
+  hasDirty() { return Object.keys(this.getDirty()).length > 0; },
+  _b64decodeStr(s) { try { return decodeURIComponent(escape(atob(s))); } catch (e) { return atob(s); } },
+  async getCurrent() {
+    const token = this.getToken();
+    if (token) {
+      const head = await fetch(this.apiUrl(), { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' } });
+      if (head.ok) { const j = await head.json(); return { data: JSON.parse(this._b64decodeStr(j.content)), sha: j.sha }; }
+      if (head.status === 404) return { data: null, sha: null };
+      throw new Error('head ' + head.status);
+    }
+    const res = await fetch(this.rawUrl(), { cache: 'no-store' });
+    if (!res.ok) return { data: null, sha: null };
+    return { data: await res.json(), sha: null };
+  },
+  buildLocalPayload() {
     return {
-      docs: { synced_at: dState.synced_at, items: (typeof docs !== 'undefined' ? docs : []) },
+      docs: { synced_at: (window.__docsState ? window.__docsState.synced_at : 0), items: (typeof docs !== 'undefined' ? docs : []) },
       video: (typeof videoData !== 'undefined' ? videoData : { headers: [], rows: [], synced_at: 0 }),
       reading: (typeof readingData !== 'undefined' ? readingData : { headers: [], rows: [], synced_at: 0 }),
-      orders: { synced_at: oState.synced_at, items: (typeof orders !== 'undefined' ? orders : []) }
+      orders: { synced_at: (window.__ordersState ? window.__ordersState.synced_at : 0), items: (typeof orders !== 'undefined' ? orders : []) }
     };
   },
-  applyCloud(data) {
-    if (!data || typeof data !== 'object') return false;
-    let changed = false;
-    // docs
-    if (data.docs && Array.isArray(data.docs.items)) {
-      const cloudT = data.docs.synced_at || 0;
-      const localT = (window.__docsState ? window.__docsState.synced_at : 0);
-      if (cloudT > localT) {
-        docs = data.docs.items;
-        if (window.__docsState) window.__docsState.synced_at = cloudT;
-        localStorage.setItem('wb_docs_synced', String(cloudT));
-        localStorage.setItem('workbench_docs', JSON.stringify(docs));
-        if (typeof renderCategories === 'function') renderCategories();
-        if (typeof renderDocs === 'function') renderDocs();
-        changed = true;
-      }
-    }
-    // video
-    if (data.video && Array.isArray(data.video.rows)) {
-      const cloudT = data.video.synced_at || 0;
-      const localT = (videoData && videoData.synced_at) || 0;
-      if (cloudT > localT) {
-        videoData = { headers: data.video.headers || [], rows: data.video.rows || [], synced_at: cloudT };
-        if (typeof saveVideo === 'function') saveVideo();
-        if (typeof renderVideoTable === 'function') renderVideoTable();
-        changed = true;
-      }
-    }
-    // reading
-    if (data.reading && Array.isArray(data.reading.rows)) {
-      const cloudT = data.reading.synced_at || 0;
-      const localT = (readingData && readingData.synced_at) || 0;
-      if (cloudT > localT) {
-        readingData = { headers: data.reading.headers || [], rows: data.reading.rows || [], synced_at: cloudT };
-        if (typeof saveReading === 'function') saveReading();
-        if (typeof renderReadingTable === 'function') renderReadingTable();
-        changed = true;
-      }
-    }
-    // orders
-    if (data.orders && Array.isArray(data.orders.items)) {
-      const cloudT = data.orders.synced_at || 0;
-      const localT = (window.__ordersState ? window.__ordersState.synced_at : 0);
-      if (cloudT > localT) {
-        orders = data.orders.items;
-        if (window.__ordersState) window.__ordersState.synced_at = cloudT;
-        localStorage.setItem('wb_orders_synced', String(cloudT));
-        localStorage.setItem('wb_orders', JSON.stringify(orders));
-        if (typeof renderOrders === 'function') renderOrders();
-        changed = true;
-      }
-    }
-    return changed;
-  },
-  async pull() {
-    if (this._pulling) return this._pulling;
-    this._pulling = (async () => {
-      try {
-        const res = await fetch(this.rawUrl(), { cache: 'no-store' });
-        if (!res.ok) return false;
-        const data = await res.json();
-        this.applyCloud(data);
-        this.updateStatus(this.getToken() ? '已同步 ' + this.fmt(Date.now()) : '本地模式');
-        return true;
-      } catch (e) { console.warn('gh pull failed', e); return false; }
-      finally { this._pulling = null; }
-    })();
-    return this._pulling;
-  },
-  async push() {
+  async push(force) {
     const token = this.getToken();
-    if (!token) { this.updateStatus('未配置令牌'); return false; }
-    // 推送前统一打上本地时间戳
+    if (!token) { this.updateStatus('未配置令牌，无法同步', false); return false; }
+    if (!force && !this.hasDirty()) return true;
+    const dirty = Object.assign({}, this.getDirty());
+    let cur;
+    try { cur = await this.getCurrent(); } catch (e) { this.updateStatus('读取云端失败', false); return false; }
+    const cloud = cur.data;
+    const local = this.buildLocalPayload();
     const now = Date.now();
-    if (videoData && typeof videoData === 'object') videoData.synced_at = now;
-    if (readingData && typeof readingData === 'object') readingData.synced_at = now;
-    if (window.__docsState) { window.__docsState.synced_at = now; localStorage.setItem('wb_docs_synced', String(now)); }
-    if (window.__ordersState) { window.__ordersState.synced_at = now; localStorage.setItem('wb_orders_synced', String(now)); }
-    const payload = this.buildPayload();
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+    const merged = { _rev: ((cloud && cloud._rev) || 0) + 1 };
+    ['docs', 'video', 'reading', 'orders'].forEach(f => {
+      const localF = local[f];
+      if (!cloud) { localF.synced_at = now; merged[f] = localF; return; }
+      const cloudF = cloud[f] || (f === 'video' || f === 'reading' ? { headers: [], rows: [] } : { items: [] });
+      if (dirty[f]) { localF.synced_at = now; merged[f] = localF; }
+      else { merged[f] = cloudF; }
+    });
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(merged, null, 2))));
     try {
-      let sha = null;
-      const head = await fetch(this.apiUrl(), { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' } });
-      if (head.ok) { const j = await head.json(); sha = j.sha; }
-      else if (head.status !== 404) { this.updateStatus('推送失败 (' + head.status + ')'); return false; }
-      const body = { message: 'sync: update data.json', content: content };
-      if (sha) body.sha = sha;
+      const body = { message: 'sync: update data.json (rev ' + merged._rev + ')', content: content };
+      if (cur.sha) body.sha = cur.sha;
       const res = await fetch(this.apiUrl(), {
         method: 'PUT',
         headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
         body: JSON.stringify(body)
       });
-      if (res.ok) { this.updateStatus('已同步 ' + this.fmt(now)); return true; }
+      if (res.ok) {
+        Object.keys(dirty).forEach(f => this.clearDirty(f));
+        this.updateStatus('已同步 ✓ ' + this.fmt(now), true);
+        return true;
+      }
       const txt = await res.text();
       console.warn('gh push failed', res.status, txt);
-      this.updateStatus('推送失败 (' + res.status + ')');
+      this.updateStatus('推送失败 (' + res.status + ')', false);
       return false;
-    } catch (e) { console.warn('gh push error', e); this.updateStatus('推送错误'); return false; }
+    } catch (e) { console.warn('gh push error', e); this.updateStatus('推送错误', false); return false; }
+  },
+  async pull() {
+    if (this._pulling) return this._pulling;
+    this._pulling = (async () => {
+      try {
+        let data = null;
+        try { const cur = await this.getCurrent(); data = cur.data; } catch (e) { data = null; }
+        if (!data) { this.updateStatus(this.getToken() ? '拉取失败' : '未配置令牌 · 仅本地', this.getToken() ? false : null); return false; }
+        this.applyCloud(data);
+        this.updateStatus(this.getToken() ? '已同步 ✓ ' + this.fmt(Date.now()) : '本地模式', this.getToken() ? true : null);
+        return true;
+      } finally { this._pulling = null; }
+    })();
+    return this._pulling;
+  },
+  applyCloud(data) {
+    if (!data || typeof data !== 'object') return false;
+    const dirty = this.getDirty();
+    let changed = false;
+    const take = (f, applyFn) => {
+      if (!data[f] || dirty[f]) return;
+      if (applyFn(data[f])) changed = true;
+    };
+    take('docs', (cf) => {
+      if (!Array.isArray(cf.items)) return false;
+      if (JSON.stringify(cf.items) === JSON.stringify(typeof docs !== 'undefined' ? docs : [])) return false;
+      docs = cf.items;
+      if (window.__docsState) window.__docsState.synced_at = cf.synced_at || 0;
+      try { localStorage.setItem('workbench_docs', JSON.stringify(docs)); } catch (e) {}
+      if (typeof renderCategories === 'function') renderCategories();
+      if (typeof renderDocs === 'function') renderDocs();
+      return true;
+    });
+    take('video', (cf) => {
+      if (!Array.isArray(cf.rows)) return false;
+      const local = (typeof videoData !== 'undefined' ? videoData : { headers: [], rows: [] });
+      if (JSON.stringify(cf.rows) === JSON.stringify(local.rows) && JSON.stringify(cf.headers || []) === JSON.stringify(local.headers || [])) return false;
+      videoData = { headers: cf.headers || [], rows: cf.rows || [], synced_at: cf.synced_at || 0 };
+      try { localStorage.setItem(VIDEO_KEY, JSON.stringify(videoData)); } catch (e) {}
+      if (typeof renderVideoTable === 'function') renderVideoTable();
+      return true;
+    });
+    take('reading', (cf) => {
+      if (!Array.isArray(cf.rows)) return false;
+      const local = (typeof readingData !== 'undefined' ? readingData : { headers: [], rows: [] });
+      if (JSON.stringify(cf.rows) === JSON.stringify(local.rows) && JSON.stringify(cf.headers || []) === JSON.stringify(local.headers || [])) return false;
+      readingData = { headers: cf.headers || [], rows: cf.rows || [], synced_at: cf.synced_at || 0 };
+      try { localStorage.setItem(READING_KEY, JSON.stringify(readingData)); } catch (e) {}
+      if (typeof renderReadingTable === 'function') renderReadingTable();
+      return true;
+    });
+    take('orders', (cf) => {
+      if (!Array.isArray(cf.items)) return false;
+      if (JSON.stringify(cf.items) === JSON.stringify(typeof orders !== 'undefined' ? orders : [])) return false;
+      orders = cf.items;
+      if (window.__ordersState) window.__ordersState.synced_at = cf.synced_at || 0;
+      try { localStorage.setItem('wb_orders', JSON.stringify(orders)); } catch (e) {}
+      if (typeof renderOrders === 'function') renderOrders();
+      return true;
+    });
+    return changed;
   },
   schedulePush() {
     if (this._pushTimer) clearTimeout(this._pushTimer);
-    this._pushTimer = setTimeout(() => { this._pushTimer = null; this.push(); }, 1000);
-  },
-  fmt(ts) {
-    if (!ts) return '';
-    const d = new Date(ts);
-    const p = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-  },
-  updateStatus(text) {
-    const el = document.getElementById('ghSyncStatus');
-    if (el) el.textContent = text;
+    this._pushTimer = setTimeout(() => { this._pushTimer = null; this.push(); }, 800);
   },
   init() {
     const bar = document.createElement('div');
     bar.id = 'ghSyncBar';
-    bar.innerHTML = `<span id="ghSyncStatus">同步: ${this.getToken() ? '点此同步' : '未配置令牌'}</span>` +
+    bar.innerHTML = `<span id="ghSyncStatus">同步: ${this.getToken() ? '已配置' : '未配置令牌'}</span>` +
       `<button id="ghSyncBtn" style="margin-left:8px;cursor:pointer">设置令牌</button>`;
     Object.assign(bar.style, {
       position: 'fixed', left: '12px', bottom: '12px', zIndex: 9999,
@@ -1975,19 +1991,23 @@ const GH = {
     document.body.appendChild(bar);
     document.getElementById('ghSyncBtn').addEventListener('click', () => {
       const cur = this.getToken();
-      const t = window.prompt('输入 GitHub 个人访问令牌（PAT，需对该仓库有 contents 写权限；仅存于本机浏览器）：', cur);
+      const t = window.prompt('输入 GitHub 个人访问令牌（PAT，需对该仓库有 contents 写权限；仅存于本机浏览器，不会上传）：', cur);
       if (t !== null) {
         this.setToken(t);
         this.updateStatus(this.getToken() ? '已配置，同步中…' : '未配置令牌');
-        if (this.getToken()) this.pull().then(() => this.push());
+        if (this.getToken()) { this.pull().then(() => this.push(true)); }
       }
     });
-    return this.pull();
+    // 自动拉取：每 15 秒 + 页面重新可见时；关闭页面前补推未完成的改动
+    this._pullTimer = setInterval(() => this.pull(), 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) this.pull(); });
+    window.addEventListener('beforeunload', () => { if (this.hasDirty() && this.getToken()) { try { this.push(); } catch (e) {} } });
+    return this.pull().then(() => { if (this.hasDirty()) return this.push(true); });
   }
 };
 window.ghSchedulePush = () => GH.schedulePush();
 
-async function syncVideoToCloud() { GH.schedulePush(); }
+async function syncVideoToCloud() { return GH.push(true); }
 async function syncVideoFromCloud() { return GH.pull(); }
 
 const READING_KEY = 'workbench_reading_data';
@@ -2016,7 +2036,7 @@ function loadReading() {
   try { return JSON.parse(localStorage.getItem(READING_KEY)) || { headers: [], rows: [] }; }
   catch(e) { return { headers: [], rows: [] }; }
 }
-function saveReading() { localStorage.setItem(READING_KEY, JSON.stringify(readingData)); if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
+function saveReading() { localStorage.setItem(READING_KEY, JSON.stringify(readingData)); (window.__dirty = window.__dirty || {}).reading = true; if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
 
 /* CSV 解析：支持逗号/制表符分隔，支持带引号字段 */
 function parseCsv(text) {
