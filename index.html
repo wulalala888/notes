@@ -884,55 +884,29 @@
             </div>
             <div>
               <div style="font-size:15px;font-weight:600">阅读清单</div>
-              <div style="font-size:12px;color:var(--text-tertiary)" id="readingCount">共 0 条记录</div>
+              <div style="font-size:12px;color:var(--text-tertiary)" id="readingCount">飞书多维表格 · 实时同步</div>
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <div id="editToggle" class="edit-toggle edit-toggle-edit" onclick="toggleEditMode()">
-              <span class="edit-toggle-slider"></span>
-              <span class="edit-toggle-label" id="editToggleLabel">可编辑</span>
-            </div>
-            <button class="btn btn-ghost" onclick="openCsvModal()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-              导入 CSV
+            <button class="btn btn-ghost" onclick="readingReload()">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              刷新
             </button>
-            <button class="btn btn-ghost" onclick="exportReadingCsv()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              导出 CSV
-            </button>
-            <button class="btn btn-ghost" onclick="clearReading()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
-              清空
-            </button>
-            <a href="https://my.feishu.cn/base/UkRbbFYxqaUWDhsRzPNcIuZ2nyg" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none">
+            <button class="btn btn-ghost" onclick="readingOpenNew()">
               <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-              飞书原表
-            </a>
+              新窗口打开
+            </button>
+            <button class="btn btn-primary" onclick="readingSetUrl()" style="text-decoration:none">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+              设置链接
+            </button>
           </div>
         </div>
 
-        <!-- 本地表格 -->
+        <!-- 飞书多维表格内嵌 -->
         <div class="card" style="padding:0;overflow:hidden">
-          <div class="table-wrap" id="readingTableWrap">
-            <div style="padding:60px 20px;text-align:center;color:var(--text-tertiary)">
-              <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:12px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3 0v6m-9 0h18M3 19V7a2 2 0 012-2h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 00.707.293H19a2 2 0 012 2v8"/></svg>
-              <div style="font-size:14px;margin-bottom:6px">暂无数据</div>
-              <div style="font-size:12px">点击「导入 CSV」粘贴飞书表格内容，或点击「飞书原表」打开源表格</div>
-            </div>
-          </div>
+          <div id="readingEmbedWrap" style="min-height:78vh"></div>
         </div>
-
-        <!-- 飞书密码提示（折叠区） -->
-        <details style="margin-top:16px;background:rgba(0,122,255,0.06);border:1px solid rgba(0,122,255,0.12);border-radius:var(--radius);padding:12px 16px">
-          <summary style="cursor:pointer;font-size:13px;color:var(--primary);font-weight:500;outline:none;list-style:none;display:flex;align-items:center;gap:6px">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-            飞书原表访问密码
-          </summary>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
-            <span style="font-size:18px;font-weight:700;letter-spacing:2px;color:var(--primary);font-family:monospace" id="readingPwd">19249z#3</span>
-            <button class="btn btn-ghost" onclick="copyReadingPwd()" style="padding:4px 10px;font-size:12px">复制</button>
-          </div>
-        </details>
       </section>
 
       <!-- ============ Video 视图 ============ -->
@@ -1063,40 +1037,6 @@
           </button>
         </div>
       </section>
-
-      <!-- ============ CSV 导入模态框 ============ -->
-      <div class="modal-mask" id="csvModal">
-        <div class="modal">
-          <div class="modal-header">
-            <div class="modal-title">导入 CSV 数据</div>
-            <button class="modal-close" onclick="closeCsvModal()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div class="modal-body">
-            <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);line-height:1.7">
-              <strong style="color:var(--text)">使用方法：</strong><br>
-              1. 打开飞书原表，选中全部内容（Ctrl+A）<br>
-              2. 复制（Ctrl+C），粘贴到下方文本框<br>
-              3. 或直接粘贴 CSV 格式文本（首行为表头，逗号分隔）<br>
-              4. 点击「导入」即可生成本地表格
-            </div>
-            <div class="form-group">
-              <label class="form-label">CSV 数据</label>
-              <textarea class="form-textarea" id="csvInput" placeholder="书名,作者,状态,进度&#10;深入理解计算机系统,Bryant,已读,100%&#10;代码大全,McConnell,在读,45%&#10;..." style="min-height:200px;font-family:monospace;font-size:12px"></textarea>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-tertiary)">
-              <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
-                <input type="checkbox" id="csvReplace" checked> 替换现有数据（否则追加）
-              </label>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-ghost" onclick="closeCsvModal()">取消</button>
-            <button class="btn btn-primary" onclick="importCsv()">导入</button>
-          </div>
-        </div>
-      </div>
 
     </main>
   </div>
@@ -2078,51 +2018,88 @@ function toCsv(headers, rows) {
   return lines.join('\n');
 }
 
-/* 渲染表格 */
+/* 渲染飞书多维表格内嵌 */
+let _readingLoadTimer = null;
+const FEISHU_READING_EMBED_URL = ''; // 留空；在「设置链接」或在此填入飞书多维表格的发布网页公开链接
+
+function getReadingEmbedUrl() {
+  try { return localStorage.getItem('wb_reading_embed_url') || FEISHU_READING_EMBED_URL; }
+  catch (e) { return FEISHU_READING_EMBED_URL; }
+}
+
 function renderReadingTable() {
-  const wrap = document.getElementById('readingTableWrap');
-  const countEl = document.getElementById('readingCount');
-  countEl.textContent = `共 ${readingData.rows.length} 条记录`;
-  if (readingData.headers.length === 0 || readingData.rows.length === 0) {
+  const wrap = document.getElementById('readingEmbedWrap');
+  if (!wrap) return;
+  if (_readingLoadTimer) { clearTimeout(_readingLoadTimer); _readingLoadTimer = null; }
+  const url = getReadingEmbedUrl();
+  wrap.innerHTML = '';
+  if (!url) {
     wrap.innerHTML = `
-      <div style="padding:60px 20px;text-align:center;color:var(--text-tertiary)">
-        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:12px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3 0v6m-9 0h18M3 19V7a2 2 0 012-2h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 00.707.293H19a2 2 0 012 2v8"/></svg>
-        <div style="font-size:14px;margin-bottom:6px">暂无数据</div>
-        <div style="font-size:12px">点击「导入 CSV」粘贴飞书表格内容，或点击「飞书原表」打开源表格</div>
+      <div style="min-height:78vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-tertiary);text-align:center;padding:24px">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3 0v6m-9 0h18M3 19V7a2 2 0 012-2h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 00.707.293H19a2 2 0 012 2v8"/></svg>
+        <div style="font-size:14px">尚未配置飞书多维表格链接</div>
+        <div style="font-size:12px;max-width:380px;line-height:1.7">在飞书把多维表格「发布为网页」并设为「互联网上获得链接的人可阅读」，复制公开链接，点击右上角「设置链接」粘贴即可。</div>
+        <button class="btn btn-primary" onclick="readingSetUrl()">设置链接</button>
       </div>`;
     return;
   }
-  const editable = readingEditMode;
-  let html = '<table><thead><tr>';
-  html += '<th style="width:48px;text-align:center">#</th>';
-  readingData.headers.forEach((h, ci) => {
-    if (editable) {
-      html += `<th><span class="edit-cell" contenteditable="true" data-type="header" data-col="${ci}" onblur="saveCellEdit(this)">${escapeHtml(h)}</span></th>`;
-    } else {
-      html += `<th>${escapeHtml(h)}</th>`;
-    }
-  });
-  if (editable) html += '<th style="width:48px;text-align:center">操作</th>';
-  html += '</tr></thead><tbody>';
-  readingData.rows.forEach((row, idx) => {
-    html += `<tr><td style="text-align:center;color:var(--text-tertiary)">${idx + 1}</td>`;
-    readingData.headers.forEach((_, ci) => {
-      if (editable) {
-        html += `<td><span class="edit-cell" contenteditable="true" data-type="cell" data-row="${idx}" data-col="${ci}" onblur="saveCellEdit(this)">${escapeHtml(row[ci] ?? '')}</span></td>`;
-      } else {
-        html += `<td>${escapeHtml(row[ci] ?? '')}</td>`;
-      }
-    });
-    if (editable) {
-      html += `<td style="text-align:center"><button class="row-del-btn" onclick="deleteReadingRow(${idx})" title="删除此行"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:15px;height:15px"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg></button></td>`;
-    }
-    html += '</tr>';
-  });
-  html += '</tbody></table>';
-  if (editable) {
-    html += '<div style="padding:12px 16px;border-top:1px solid var(--divider)"><button class="btn btn-ghost" onclick="addReadingRow()" style="font-size:13px"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg> 添加新行</button></div>';
-  }
-  wrap.innerHTML = html;
+  const host = document.createElement('div');
+  host.style.position = 'relative';
+  host.style.minHeight = '78vh';
+  const frame = document.createElement('iframe');
+  frame.id = 'readingFrame';
+  frame.src = url;
+  frame.style.width = '100%';
+  frame.style.height = '78vh';
+  frame.style.border = '0';
+  frame.style.display = 'block';
+  try { frame.referrerPolicy = 'no-referrer-when-downgrade'; } catch (e) {}
+  frame.onload = readingFrameLoaded;
+  host.appendChild(frame);
+
+  const fb = document.createElement('div');
+  fb.id = 'readingFallback';
+  fb.style.cssText = 'display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:var(--bg);color:var(--text-secondary);text-align:center;padding:24px';
+  fb.innerHTML = '<div style="font-size:14px">表格未能在页内加载（飞书可能限制了嵌套显示）。</div>';
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-primary';
+  btn.textContent = '在新窗口打开飞书原表';
+  btn.onclick = readingOpenNew;
+  fb.appendChild(btn);
+  host.appendChild(fb);
+  wrap.appendChild(host);
+
+  _readingLoadTimer = setTimeout(() => {
+    const f = document.getElementById('readingFallback');
+    if (f) f.style.display = 'flex';
+  }, 6000);
+}
+
+function readingFrameLoaded() {
+  if (_readingLoadTimer) { clearTimeout(_readingLoadTimer); _readingLoadTimer = null; }
+  const f = document.getElementById('readingFallback');
+  if (f) f.style.display = 'none';
+}
+
+function readingReload() { renderReadingTable(); }
+
+function readingOpenNew() {
+  const url = getReadingEmbedUrl();
+  if (url) window.open(url, '_blank', 'noopener');
+  else if (typeof toast === 'function') toast('请先在「设置链接」中配置飞书多维表格链接');
+}
+
+function readingSetUrl() {
+  const cur = getReadingEmbedUrl();
+  const val = window.prompt ? window.prompt('粘贴飞书多维表格的「发布为网页」公开链接：', cur || '') : null;
+  if (val === null) return;
+  const v = String(val).trim();
+  try {
+    if (!v) { localStorage.removeItem('wb_reading_embed_url'); }
+    else { localStorage.setItem('wb_reading_embed_url', v); }
+  } catch (e) {}
+  renderReadingTable();
+  if (typeof toast === 'function') toast(v ? '已保存链接 ✓' : '已清除链接');
 }
 
 /* 单元格编辑保存 */
@@ -2252,7 +2229,8 @@ function clearReading() {
 }
 
 /* 模态框点击遮罩关闭 */
-document.getElementById('csvModal').addEventListener('click', e => {
+const csvModalEl = document.getElementById('csvModal');
+if (csvModalEl) csvModalEl.addEventListener('click', e => {
   if (e.target.id === 'csvModal') closeCsvModal();
 });
 
