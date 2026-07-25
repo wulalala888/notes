@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
 <title>个人工作台 · Workbench</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
@@ -83,6 +83,7 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', system-ui, sans-serif;
     background: var(--bg);
@@ -91,11 +92,12 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
     letter-spacing: -0.01em;
   }
 
   /* ========== 整体布局 ========== */
-  .app { display: flex; height: 100vh; overflow: hidden; }
+  .app { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
 
   /* ========== 侧边栏 — 毛玻璃 ========== */
   .sidebar {
@@ -484,7 +486,7 @@
   .modal-mask.show { display: flex; animation: fadeIn 0.2s var(--ease); }
   .modal {
     background: var(--surface); border-radius: var(--radius-xl);
-    width: 480px; max-width: 92vw; max-height: 90vh; overflow-y: auto;
+    width: 480px; max-width: 92vw; max-height: 90vh; max-height: 90dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
     box-shadow: var(--shadow-lg); animation: modalIn 0.35s var(--ease-spring);
   }
   @keyframes modalIn {
@@ -508,7 +510,7 @@
   .form-label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600; }
   .form-input, .form-select, .form-textarea {
     width: 100%; padding: 10px 14px; border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm); font-size: 14px; font-family: inherit;
+    border-radius: var(--radius-sm); font-size: 16px; font-family: inherit;
     color: var(--text); background: var(--surface-2); transition: var(--transition);
   }
   .form-input:focus, .form-select:focus, .form-textarea:focus {
@@ -549,25 +551,40 @@
     .sidebar {
       width: 56px;
       position: fixed;
+      top: 0;
+      left: 0;
       z-index: 50;
-      height: 100%;
+      height: 100vh;
+      height: 100dvh;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
     }
     .sidebar .logo-text,
     .sidebar .nav-label,
     .sidebar .nav-section-title,
     .sidebar .sidebar-footer { display: none; }
     .sidebar .logo { justify-content: center; padding: 18px 0; }
-    .sidebar .nav-item { justify-content: center; padding: 10px 0; }
+    .sidebar .nav { -webkit-overflow-scrolling: touch; }
+    .sidebar .nav-item { justify-content: center; padding: 10px 0; min-height: 44px; }
     .sidebar .collapse-btn { display: none; }
-    .main { margin-left: 56px; }
+    .main {
+      margin-left: 56px;
+      -webkit-overflow-scrolling: touch;
+    }
     .doc-layout { grid-template-columns: 1fr; }
     .search-box { width: 100px; }
     #syncTime { display: none !important; }
-    .content { padding: 20px 16px; }
+    .content {
+      padding: 20px 16px;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    }
     .kpi-grid { grid-template-columns: 1fr; }
     .chart-grid { grid-template-columns: 1fr; }
     .chart-row-2 { grid-template-columns: 1fr; }
-    .topbar { padding: 0 16px; }
+    .topbar {
+      padding: 0 16px;
+      padding-top: env(safe-area-inset-top);
+    }
     .page-title { font-size: 15px; }
     .page-subtitle { font-size: 11px; }
   }
@@ -905,7 +922,7 @@
 
         <!-- 飞书多维表格内嵌 -->
         <div class="card" style="padding:0;overflow:hidden">
-          <div id="readingEmbedWrap" style="min-height:78vh"></div>
+          <div id="readingEmbedWrap" style="min-height:78vh;min-height:78dvh"></div>
         </div>
       </section>
 
@@ -940,7 +957,7 @@
 
         <!-- 飞书多维表格内嵌 -->
         <div class="card" style="padding:0;overflow:hidden">
-          <div id="videoEmbedWrap" style="min-height:78vh"></div>
+          <div id="videoEmbedWrap" style="min-height:78vh;min-height:78dvh"></div>
         </div>
       </section>
 
@@ -1019,6 +1036,31 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeDocModal()">取消</button>
       <button class="btn btn-primary" onclick="saveDoc()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="embedUrlModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="embedUrlTitle">设置飞书多维表格链接</div>
+      <button class="modal-close" onclick="closeEmbedUrlModal()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);line-height:1.7">
+        在飞书把多维表格「发布为网页」并设为「互联网上获得链接的人可阅读」，复制公开链接粘贴到下方。<br>留空并保存可清除当前链接。
+      </div>
+      <div class="form-group">
+        <label class="form-label">公开链接</label>
+        <input type="url" class="form-input" id="embedUrlInput" placeholder="https://…" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="clearEmbedUrl()">清除</button>
+      <button class="btn btn-ghost" onclick="closeEmbedUrlModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveEmbedUrl()">保存</button>
     </div>
   </div>
 </div>
@@ -1465,6 +1507,15 @@ function saveDoc() {
 document.getElementById('docModal').addEventListener('click', e => {
   if (e.target.id === 'docModal') closeDocModal();
 });
+const _embedUrlModalEl = document.getElementById('embedUrlModal');
+if (_embedUrlModalEl) {
+  _embedUrlModalEl.addEventListener('click', e => {
+    if (e.target.id === 'embedUrlModal') closeEmbedUrlModal();
+  });
+  document.getElementById('embedUrlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); saveEmbedUrl(); }
+  });
+}
 
 /* 全局搜索（简单过滤文档） */
 document.getElementById('globalSearch').addEventListener('input', e => {
@@ -1984,7 +2035,7 @@ function renderReadingTable() {
   wrap.innerHTML = '';
   if (!url) {
     wrap.innerHTML = `
-      <div style="min-height:78vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-tertiary);text-align:center;padding:24px">
+      <div style="min-height:78vh;min-height:78dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-tertiary);text-align:center;padding:24px">
         <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3 0v6m-9 0h18M3 19V7a2 2 0 012-2h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 00.707.293H19a2 2 0 012 2v8"/></svg>
         <div style="font-size:14px">尚未配置飞书多维表格链接</div>
         <div style="font-size:12px;max-width:380px;line-height:1.7">在飞书把多维表格「发布为网页」并设为「互联网上获得链接的人可阅读」，复制公开链接，点击右上角「设置链接」粘贴即可。</div>
@@ -1994,12 +2045,12 @@ function renderReadingTable() {
   }
   const host = document.createElement('div');
   host.style.position = 'relative';
-  host.style.minHeight = '78vh';
+  host.style.minHeight = '78vh'; host.style.minHeight = '78dvh';
   const frame = document.createElement('iframe');
   frame.id = 'readingFrame';
   frame.src = url;
   frame.style.width = '100%';
-  frame.style.height = '78vh';
+  frame.style.height = '78vh'; frame.style.height = '78dvh';
   frame.style.border = '0';
   frame.style.display = 'block';
   try { frame.referrerPolicy = 'no-referrer-when-downgrade'; } catch (e) {}
@@ -2049,7 +2100,7 @@ function renderVideoEmbed() {
   wrap.innerHTML = '';
   if (!url) {
     wrap.innerHTML = `
-      <div style="min-height:78vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-tertiary);text-align:center;padding:24px">
+      <div style="min-height:78vh;min-height:78dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-tertiary);text-align:center;padding:24px">
         <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
         <div style="font-size:14px">尚未配置飞书多维表格链接</div>
         <div style="font-size:12px;max-width:380px;line-height:1.7">在飞书把多维表格「发布为网页」并设为「互联网上获得链接的人可阅读」，复制公开链接，点击右上角「设置链接」粘贴即可。</div>
@@ -2059,12 +2110,12 @@ function renderVideoEmbed() {
   }
   const host = document.createElement('div');
   host.style.position = 'relative';
-  host.style.minHeight = '78vh';
+  host.style.minHeight = '78vh'; host.style.minHeight = '78dvh';
   const frame = document.createElement('iframe');
   frame.id = 'videoFrame';
   frame.src = url;
   frame.style.width = '100%';
-  frame.style.height = '78vh';
+  frame.style.height = '78vh'; frame.style.height = '78dvh';
   frame.style.border = '0';
   frame.style.display = 'block';
   try { frame.referrerPolicy = 'no-referrer-when-downgrade'; } catch (e) {}
@@ -2103,17 +2154,39 @@ function videoOpenNew() {
   else if (typeof toast === 'function') toast('请先在「设置链接」中配置飞书多维表格链接');
 }
 
-function videoSetUrl() {
-  const cur = getVideoEmbedUrl();
-  const val = window.prompt ? window.prompt('粘贴飞书多维表格的「发布为网页」公开链接：', cur || '') : null;
-  if (val === null) return;
-  const v = String(val).trim();
-  try {
-    if (!v) { localStorage.removeItem('wb_video_embed_url'); }
-    else { localStorage.setItem('wb_video_embed_url', v); }
-  } catch (e) {}
-  renderVideoEmbed();
-  if (typeof toast === 'function') toast(v ? '已保存链接 ✓' : '已清除链接');
+function videoSetUrl() { openEmbedUrlModal('video'); }
+
+/* ============ 飞书链接设置弹窗（替代 window.prompt，兼容 iOS Safari） ============ */
+let _embedTarget = null;
+function openEmbedUrlModal(target) {
+  _embedTarget = target;
+  const titleEl = document.getElementById('embedUrlTitle');
+  const input = document.getElementById('embedUrlInput');
+  const getFn = (target === 'video') ? getVideoEmbedUrl : getReadingEmbedUrl;
+  titleEl.textContent = (target === 'video') ? '设置影视清单飞书链接' : '设置阅读清单飞书链接';
+  input.value = getFn() || '';
+  document.getElementById('embedUrlModal').classList.add('show');
+  setTimeout(function(){ try { input.focus(); input.select(); } catch(e){} }, 60);
+}
+function closeEmbedUrlModal() { document.getElementById('embedUrlModal').classList.remove('show'); }
+function clearEmbedUrl() {
+  if (_embedTarget === 'video') localStorage.removeItem('wb_video_embed_url');
+  else localStorage.removeItem('wb_reading_embed_url');
+  closeEmbedUrlModal();
+  if (_embedTarget === 'video') renderVideoEmbed(); else renderReadingTable();
+  toast('已清除链接');
+}
+function saveEmbedUrl() {
+  const v = document.getElementById('embedUrlInput').value.trim();
+  if (_embedTarget === 'video') {
+    if (v) localStorage.setItem('wb_video_embed_url', v); else localStorage.removeItem('wb_video_embed_url');
+    renderVideoEmbed();
+  } else {
+    if (v) localStorage.setItem('wb_reading_embed_url', v); else localStorage.removeItem('wb_reading_embed_url');
+    renderReadingTable();
+  }
+  closeEmbedUrlModal();
+  toast(v ? '已保存链接 ✓' : '已清除链接');
 }
 
 function readingReload() { renderReadingTable(); }
@@ -2124,18 +2197,7 @@ function readingOpenNew() {
   else if (typeof toast === 'function') toast('请先在「设置链接」中配置飞书多维表格链接');
 }
 
-function readingSetUrl() {
-  const cur = getReadingEmbedUrl();
-  const val = window.prompt ? window.prompt('粘贴飞书多维表格的「发布为网页」公开链接：', cur || '') : null;
-  if (val === null) return;
-  const v = String(val).trim();
-  try {
-    if (!v) { localStorage.removeItem('wb_reading_embed_url'); }
-    else { localStorage.setItem('wb_reading_embed_url', v); }
-  } catch (e) {}
-  renderReadingTable();
-  if (typeof toast === 'function') toast(v ? '已保存链接 ✓' : '已清除链接');
-}
+function readingSetUrl() { openEmbedUrlModal('reading'); }
 
 /* 单元格编辑保存 */
 function saveCellEdit(el) {
