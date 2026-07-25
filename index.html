@@ -919,90 +919,32 @@
             </div>
             <div>
               <div style="font-size:15px;font-weight:600">影视清单</div>
-              <div style="font-size:12px;color:var(--text-tertiary)" id="videoCount">共 0 条记录</div>
+              <div style="font-size:12px;color:var(--text-tertiary)" id="videoCount">飞书多维表格 · 实时同步</div>
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <div id="videoEditToggle" class="edit-toggle edit-toggle-edit" onclick="toggleVideoEditMode()">
-              <span class="edit-toggle-slider"></span>
-              <span class="edit-toggle-label" id="videoEditToggleLabel">可编辑</span>
-            </div>
-            <button class="btn btn-ghost" onclick="openVideoCsvModal()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-              导入 CSV
+            <button class="btn btn-ghost" onclick="videoReload()">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              刷新
             </button>
-            <button class="btn btn-ghost" onclick="exportVideoCsv()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              导出 CSV
-            </button>
-            <button class="btn btn-ghost" onclick="clearVideo()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
-              清空
-            </button>
-            <a href="https://my.feishu.cn/base/GvQmb1BKEa1vDIszE1vcayl0nRh" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none">
+            <button class="btn btn-ghost" onclick="videoOpenNew()">
               <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-              飞书原表
-            </a>
+              新窗口打开
+            </button>
+            <button class="btn btn-primary" onclick="videoSetUrl()" style="text-decoration:none">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+              设置链接
+            </button>
           </div>
         </div>
 
-        <!-- 本地表格 -->
+        <!-- 飞书多维表格内嵌 -->
         <div class="card" style="padding:0;overflow:hidden">
-          <div class="table-wrap" id="videoTableWrap">
-            <div style="padding:60px 20px;text-align:center;color:var(--text-tertiary)">
-              <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:12px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-              <div style="font-size:14px;margin-bottom:6px">暂无数据</div>
-              <div style="font-size:12px">点击「导入 CSV」粘贴飞书表格内容，或点击「飞书原表」打开源表格</div>
-            </div>
-          </div>
+          <div id="videoEmbedWrap" style="min-height:78vh"></div>
         </div>
-
-        <!-- 飞书密码提示（折叠区） -->
-        <details style="margin-top:16px;background:rgba(175,82,222,0.06);border:1px solid rgba(175,82,222,0.12);border-radius:var(--radius);padding:12px 16px">
-          <summary style="cursor:pointer;font-size:13px;color:var(--purple);font-weight:500;outline:none;list-style:none;display:flex;align-items:center;gap:6px">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-            飞书原表访问密码
-          </summary>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
-            <span style="font-size:18px;font-weight:700;letter-spacing:2px;color:var(--purple);font-family:monospace" id="videoPwd">8826#26g</span>
-            <button class="btn btn-ghost" onclick="copyVideoPwd()" style="padding:4px 10px;font-size:12px">复制</button>
-          </div>
-        </details>
       </section>
 
-      <!-- ============ Video CSV 导入模态框 ============ -->
-      <div class="modal-mask" id="videoCsvModal">
-        <div class="modal">
-          <div class="modal-header">
-            <div class="modal-title">导入影视清单 CSV</div>
-            <button class="modal-close" onclick="closeVideoCsvModal()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div class="modal-body">
-            <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);line-height:1.7">
-              <strong style="color:var(--text)">使用方法：</strong><br>
-              1. 打开飞书原表，选中全部内容（Ctrl+A）<br>
-              2. 复制（Ctrl+C），粘贴到下方文本框<br>
-              3. 或直接粘贴 CSV 格式文本（首行为表头，逗号分隔）<br>
-              4. 点击「导入」即可生成本地表格
-            </div>
-            <div class="form-group">
-              <label class="form-label">CSV 数据</label>
-              <textarea class="form-textarea" id="videoCsvInput" placeholder="名称,类型,状态,添加日期,备注&#10;盗梦空间,电影,已看,2026-07-01,&#10;..." style="min-height:200px;font-family:monospace;font-size:12px"></textarea>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-tertiary)">
-              <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
-                <input type="checkbox" id="videoCsvReplace" checked> 替换现有数据（否则追加）
-              </label>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-ghost" onclick="closeVideoCsvModal()">取消</button>
-            <button class="btn btn-primary" onclick="importVideoCsv()">导入</button>
-          </div>
-        </div>
-      </div>
+      <!-- ============ Video CSV 导入模态框（已移除，改用飞书内嵌） ============ -->
 
       <!-- ============ 零零碎碎视图 ============ -->
       <section class="view" id="view-misc">
@@ -1615,6 +1557,10 @@ function toggleVideoEditMode() {
 }
 
 function renderVideoTable() {
+  renderVideoEmbed();
+  return;
+}
+function _videoTable_deprecated() {
   const wrap = document.getElementById('videoTableWrap');
   const countEl = document.getElementById('videoCount');
   countEl.textContent = `共 ${videoData.rows.length} 条记录`;
@@ -1753,9 +1699,12 @@ function clearVideo() {
   toast('已清空');
 }
 
-document.getElementById('videoCsvModal').addEventListener('click', e => {
-  if (e.target.id === 'videoCsvModal') closeVideoCsvModal();
-});
+const _videoCsvModalEl = document.getElementById('videoCsvModal');
+if (_videoCsvModalEl) {
+  _videoCsvModalEl.addEventListener('click', e => {
+    if (e.target.id === 'videoCsvModal') closeVideoCsvModal();
+  });
+}
 
 /* Video 云端同步 */
 /* ============ GitHub 云端同步模块（跨设备同步） ============ */
@@ -2079,6 +2028,92 @@ function readingFrameLoaded() {
   if (_readingLoadTimer) { clearTimeout(_readingLoadTimer); _readingLoadTimer = null; }
   const f = document.getElementById('readingFallback');
   if (f) f.style.display = 'none';
+}
+
+/* ============ Video 飞书多维表格内嵌 ============ */
+let _videoLoadTimer = null;
+const FEISHU_VIDEO_EMBED_URL = ''; // 留空；在「设置链接」或在此填入飞书多维表格的发布网页公开链接
+
+function getVideoEmbedUrl() {
+  try { return localStorage.getItem('wb_video_embed_url') || FEISHU_VIDEO_EMBED_URL; }
+  catch (e) { return FEISHU_VIDEO_EMBED_URL; }
+}
+
+function renderVideoEmbed() {
+  const wrap = document.getElementById('videoEmbedWrap');
+  if (!wrap) return;
+  if (_videoLoadTimer) { clearTimeout(_videoLoadTimer); _videoLoadTimer = null; }
+  const url = getVideoEmbedUrl();
+  const countEl = document.getElementById('videoCount');
+  if (countEl) countEl.textContent = url ? '飞书多维表格 · 实时同步' : '尚未配置飞书链接';
+  wrap.innerHTML = '';
+  if (!url) {
+    wrap.innerHTML = `
+      <div style="min-height:78vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-tertiary);text-align:center;padding:24px">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <div style="font-size:14px">尚未配置飞书多维表格链接</div>
+        <div style="font-size:12px;max-width:380px;line-height:1.7">在飞书把多维表格「发布为网页」并设为「互联网上获得链接的人可阅读」，复制公开链接，点击右上角「设置链接」粘贴即可。</div>
+        <button class="btn btn-primary" onclick="videoSetUrl()">设置链接</button>
+      </div>`;
+    return;
+  }
+  const host = document.createElement('div');
+  host.style.position = 'relative';
+  host.style.minHeight = '78vh';
+  const frame = document.createElement('iframe');
+  frame.id = 'videoFrame';
+  frame.src = url;
+  frame.style.width = '100%';
+  frame.style.height = '78vh';
+  frame.style.border = '0';
+  frame.style.display = 'block';
+  try { frame.referrerPolicy = 'no-referrer-when-downgrade'; } catch (e) {}
+  frame.onload = videoFrameLoaded;
+  host.appendChild(frame);
+
+  const fb = document.createElement('div');
+  fb.id = 'videoFallback';
+  fb.style.cssText = 'display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:var(--bg);color:var(--text-secondary);text-align:center;padding:24px';
+  fb.innerHTML = '<div style="font-size:14px">表格未能在页内加载（飞书可能限制了嵌套显示）。</div>';
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-primary';
+  btn.textContent = '在新窗口打开飞书原表';
+  btn.onclick = videoOpenNew;
+  fb.appendChild(btn);
+  host.appendChild(fb);
+  wrap.appendChild(host);
+
+  _videoLoadTimer = setTimeout(() => {
+    const f = document.getElementById('videoFallback');
+    if (f) f.style.display = 'flex';
+  }, 6000);
+}
+
+function videoFrameLoaded() {
+  if (_videoLoadTimer) { clearTimeout(_videoLoadTimer); _videoLoadTimer = null; }
+  const f = document.getElementById('videoFallback');
+  if (f) f.style.display = 'none';
+}
+
+function videoReload() { renderVideoEmbed(); }
+
+function videoOpenNew() {
+  const url = getVideoEmbedUrl();
+  if (url) window.open(url, '_blank', 'noopener');
+  else if (typeof toast === 'function') toast('请先在「设置链接」中配置飞书多维表格链接');
+}
+
+function videoSetUrl() {
+  const cur = getVideoEmbedUrl();
+  const val = window.prompt ? window.prompt('粘贴飞书多维表格的「发布为网页」公开链接：', cur || '') : null;
+  if (val === null) return;
+  const v = String(val).trim();
+  try {
+    if (!v) { localStorage.removeItem('wb_video_embed_url'); }
+    else { localStorage.setItem('wb_video_embed_url', v); }
+  } catch (e) {}
+  renderVideoEmbed();
+  if (typeof toast === 'function') toast(v ? '已保存链接 ✓' : '已清除链接');
 }
 
 function readingReload() { renderReadingTable(); }
