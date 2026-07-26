@@ -2268,6 +2268,15 @@ function ensureReadingSchema() {
 function openReadingAdd() {
   _readingEditIdx = -1;
   READING_FIELDS.forEach(f => { const el = document.getElementById('rf-' + f); if (el) el.value = ''; });
+  // 阅读日期默认填当天
+  const dateEl = document.getElementById('rf-阅读日期');
+  if (dateEl) {
+    const t = new Date();
+    const y = t.getFullYear();
+    const m = String(t.getMonth() + 1).padStart(2, '0');
+    const d = String(t.getDate()).padStart(2, '0');
+    dateEl.value = `${y}-${m}-${d}`;
+  }
   document.getElementById('readingAddTitle').textContent = '新增记录';
   document.getElementById('readingAddModal').classList.add('show');
   setTimeout(() => { const el = document.getElementById('rf-书名'); if (el) el.focus(); }, 120);
