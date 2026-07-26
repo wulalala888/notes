@@ -553,6 +553,11 @@
     box-shadow: 0 0 0 4px var(--blue-light);
   }
   .form-textarea { resize: vertical; min-height: 80px; }
+  .reading-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .reading-table th { text-align: left; padding: 10px 12px; color: var(--text-tertiary); font-weight: 600; border-bottom: 1px solid var(--divider); white-space: nowrap; }
+  .reading-table td { padding: 10px 12px; border-bottom: 1px solid var(--divider); color: var(--text); vertical-align: top; }
+  .reading-table tr:hover td { background: rgba(0,0,0,0.02); }
+  .reading-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
 
   /* ========== Toast — 苹果风格 ========== */
   .toast {
@@ -935,8 +940,7 @@
       </section>
 
       <!-- ============ Reading 视图（本地表格 + CSV 导入） ============ -->
-      <section class="view" id="view-reading">
-        <!-- 顶部工具栏 -->
+            <section class="view" id="view-reading">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div style="display:flex;align-items:center;gap:12px">
             <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#007AFF,#5856D6);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,122,255,0.3)">
@@ -944,28 +948,17 @@
             </div>
             <div>
               <div style="font-size:15px;font-weight:600">阅读清单</div>
-              <div style="font-size:12px;color:var(--text-tertiary)" id="readingCount">飞书多维表格 · 实时同步</div>
+              <div style="font-size:12px;color:var(--text-tertiary)" id="readingCount">本地记录 · 自动同步</div>
             </div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn btn-ghost" onclick="readingReload()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              刷新
-            </button>
-            <button class="btn btn-ghost" onclick="readingOpenNew()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-              新窗口打开
-            </button>
-            <button class="btn btn-primary" onclick="readingSetUrl()" style="text-decoration:none">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-              设置链接
-            </button>
-          </div>
+          <button class="btn btn-primary" onclick="openReadingAdd()">
+            <svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+            新增记录
+          </button>
         </div>
 
-        <!-- 飞书多维表格内嵌 -->
-        <div class="card" style="padding:0;overflow:hidden">
-          <div id="readingEmbedWrap" style="min-height:78vh;min-height:78dvh"></div>
+        <div class="card" style="padding:18px">
+          <div id="readingTableWrap"></div>
         </div>
       </section>
 
@@ -1178,6 +1171,62 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeMiscAdd()">取消</button>
       <button class="btn btn-primary" onclick="saveMiscItem()">保存</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-mask" id="readingAddModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="readingAddTitle">新增记录</div>
+      <button class="modal-close" onclick="closeReadingAdd()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">阅读日期</label>
+        <input type="date" class="form-input" id="rf-阅读日期">
+      </div>
+      <div class="form-group">
+        <label class="form-label">阅读状态</label>
+        <select class="form-select" id="rf-阅读状态">
+          <option value="想读">想读</option>
+          <option value="在读">在读</option>
+          <option value="已读">已读</option>
+          <option value="搁置">搁置</option>
+          <option value="弃读">弃读</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">书名</label>
+        <input type="text" class="form-input" id="rf-书名" placeholder="书名">
+      </div>
+      <div class="form-group">
+        <label class="form-label">国家</label>
+        <input type="text" class="form-input" id="rf-国家" placeholder="国家">
+      </div>
+      <div class="form-group">
+        <label class="form-label">作者</label>
+        <input type="text" class="form-input" id="rf-作者" placeholder="作者">
+      </div>
+      <div class="form-group">
+        <label class="form-label">译者</label>
+        <input type="text" class="form-input" id="rf-译者" placeholder="译者">
+      </div>
+      <div class="form-group">
+        <label class="form-label">类别</label>
+        <input type="text" class="form-input" id="rf-类别" placeholder="类别">
+      </div>
+      <div class="form-group">
+        <label class="form-label">笔记</label>
+        <textarea class="form-textarea" id="rf-笔记" placeholder="随手记点什么…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeReadingAdd()">取消</button>
+      <button class="btn btn-primary" onclick="saveReadingRecord()">保存</button>
     </div>
   </div>
 </div>
@@ -2059,8 +2108,12 @@ const GH = {
     take('reading', (cf) => {
       if (!Array.isArray(cf.rows)) return false;
       const local = (typeof readingData !== 'undefined' ? readingData : { headers: [], rows: [] });
-      if (JSON.stringify(cf.rows) === JSON.stringify(local.rows) && JSON.stringify(cf.headers || []) === JSON.stringify(local.headers || [])) return false;
-      readingData = { headers: cf.headers || [], rows: cf.rows || [], synced_at: cf.synced_at || 0 };
+      const localHeaders = Array.isArray(local.headers) ? local.headers : [];
+      const cloudHeaders = Array.isArray(cf.headers) ? cf.headers : [];
+      // schema guard: 仅当表头与当前结构一致时才采用云端数据，避免旧结构覆盖新模板
+      if (JSON.stringify(cloudHeaders) !== JSON.stringify(localHeaders)) return false;
+      if (JSON.stringify(cf.rows) === JSON.stringify(local.rows)) return false;
+      readingData = { headers: cloudHeaders, rows: cf.rows || [], synced_at: cf.synced_at || 0 };
       try { localStorage.setItem(READING_KEY, JSON.stringify(readingData)); } catch (e) {}
       if (typeof renderReadingTable === 'function') renderReadingTable();
       return true;
@@ -2111,24 +2164,11 @@ async function syncVideoFromCloud() { return GH.pull(); }
 const READING_KEY = 'workbench_reading_data';
 let readingEditMode = true; // 默认可编辑
 
-/* 切换编辑/阅读模式 */
-function toggleEditMode() {
-  readingEditMode = !readingEditMode;
-  const toggle = document.getElementById('editToggle');
-  const label = document.getElementById('editToggleLabel');
-  if (readingEditMode) {
-    toggle.classList.add('edit-toggle-edit');
-    toggle.classList.remove('edit-toggle-view');
-    label.textContent = '可编辑';
-  } else {
-    toggle.classList.remove('edit-toggle-edit');
-    toggle.classList.add('edit-toggle-view');
-    label.textContent = '仅阅读';
-  }
-  renderReadingTable();
-  toast(readingEditMode ? '已切换为可编辑模式' : '已切换为仅阅读模式');
-}
+const READING_FIELDS = ['阅读日期','阅读状态','书名','国家','作者','译者','类别','笔记'];
+let _readingEditIdx = -1;
 let readingData = loadReading();
+ensureReadingSchema();
+renderReadingTable();
 
 function loadReading() {
   try { return JSON.parse(localStorage.getItem(READING_KEY)) || { headers: [], rows: [] }; }
@@ -2186,52 +2226,83 @@ function getReadingEmbedUrl() {
 }
 
 function renderReadingTable() {
-  const wrap = document.getElementById('readingEmbedWrap');
+  const wrap = document.getElementById('readingTableWrap');
   if (!wrap) return;
-  if (_readingLoadTimer) { clearTimeout(_readingLoadTimer); _readingLoadTimer = null; }
-  const url = getReadingEmbedUrl();
-  wrap.innerHTML = '';
-  if (!url) {
-    wrap.innerHTML = `
-      <div style="min-height:78vh;min-height:78dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-tertiary);text-align:center;padding:24px">
-        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3 0v6m-9 0h18M3 19V7a2 2 0 012-2h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 00.707.293H19a2 2 0 012 2v8"/></svg>
-        <div style="font-size:14px">尚未配置飞书多维表格链接</div>
-        <div style="font-size:12px;max-width:380px;line-height:1.7">在飞书把多维表格「发布为网页」并设为「互联网上获得链接的人可阅读」，复制公开链接，点击右上角「设置链接」粘贴即可。</div>
-        <button class="btn btn-primary" onclick="readingSetUrl()">设置链接</button>
-      </div>`;
+  if (!readingData || !Array.isArray(readingData.rows) || readingData.rows.length === 0) {
+    wrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:48px 24px;color:var(--text-tertiary);text-align:center">' +
+      '<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:46px;height:46px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>' +
+      '<div style="font-size:14px">还没有阅读记录</div>' +
+      '<button class="btn btn-primary" onclick="openReadingAdd()">+ 新增记录</button></div>';
     return;
   }
-  const host = document.createElement('div');
-  host.style.position = 'relative';
-  host.style.minHeight = '78vh'; host.style.minHeight = '78dvh';
-  const frame = document.createElement('iframe');
-  frame.id = 'readingFrame';
-  frame.src = url;
-  frame.style.width = '100%';
-  frame.style.height = '78vh'; frame.style.height = '78dvh';
-  frame.style.border = '0';
-  frame.style.display = 'block';
-  try { frame.referrerPolicy = 'no-referrer-when-downgrade'; } catch (e) {}
-  frame.onload = readingFrameLoaded;
-  host.appendChild(frame);
-
-  const fb = document.createElement('div');
-  fb.id = 'readingFallback';
-  fb.style.cssText = 'display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:var(--bg);color:var(--text-secondary);text-align:center;padding:24px';
-  fb.innerHTML = '<div style="font-size:14px">表格未能在页内加载（飞书可能限制了嵌套显示）。</div>';
-  const btn = document.createElement('button');
-  btn.className = 'btn btn-primary';
-  btn.textContent = '在新窗口打开飞书原表';
-  btn.onclick = readingOpenNew;
-  fb.appendChild(btn);
-  host.appendChild(fb);
-  wrap.appendChild(host);
-
-  _readingLoadTimer = setTimeout(() => {
-    const f = document.getElementById('readingFallback');
-    if (f) f.style.display = 'flex';
-  }, 6000);
+  const fields = readingData.headers;
+  const statusColors = { '想读':'#FF9500', '在读':'#007AFF', '已读':'#34C759', '搁置':'#8E8E93', '弃读':'#FF3B30' };
+  const head = '<tr>' + fields.map(f => '<th>' + escapeHtml(f) + '</th>').join('') + '<th style="width:1px"></th></tr>';
+  const body = readingData.rows.map((r, i) => {
+    const cells = fields.map((f, idx) => {
+      const v = r[idx] || '';
+      if (f === '阅读状态' && statusColors[v]) return '<td><span class="reading-status" style="background:' + statusColors[v] + '1a;color:' + statusColors[v] + '">' + escapeHtml(v) + '</span></td>';
+      if (f === '笔记') return '<td style="max-width:240px;white-space:pre-wrap;color:var(--text-secondary)">' + escapeHtml(v) + '</td>';
+      return '<td>' + escapeHtml(v) + '</td>';
+    }).join('');
+    return '<tr>' + cells +
+      '<td style="white-space:nowrap"><button class="row-del-btn" title="编辑" onclick="openReadingEdit(' + i + ')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:15px;height:15px"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-8-8l8 8M7 7h1"/></svg></button>' +
+      '<button class="row-del-btn" title="删除" onclick="deleteReadingRecord(' + i + ')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:15px;height:15px"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button></td>' +
+      '</tr>';
+  }).join('');
+  wrap.innerHTML = '<div style="overflow-x:auto"><table class="reading-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
 }
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+function ensureReadingSchema() {
+  if (!readingData || !Array.isArray(readingData.headers) ||
+      JSON.stringify(readingData.headers) !== JSON.stringify(READING_FIELDS)) {
+    readingData = { headers: READING_FIELDS.slice(), rows: [] };
+    saveReading();
+  }
+}
+
+function openReadingAdd() {
+  _readingEditIdx = -1;
+  READING_FIELDS.forEach(f => { const el = document.getElementById('rf-' + f); if (el) el.value = ''; });
+  document.getElementById('readingAddTitle').textContent = '新增记录';
+  document.getElementById('readingAddModal').classList.add('show');
+  setTimeout(() => { const el = document.getElementById('rf-书名'); if (el) el.focus(); }, 120);
+}
+
+function openReadingEdit(i) {
+  _readingEditIdx = i;
+  const r = readingData.rows[i] || [];
+  READING_FIELDS.forEach((f, idx) => { const el = document.getElementById('rf-' + f); if (el) el.value = r[idx] || ''; });
+  document.getElementById('readingAddTitle').textContent = '编辑记录';
+  document.getElementById('readingAddModal').classList.add('show');
+}
+
+function closeReadingAdd() { document.getElementById('readingAddModal').classList.remove('show'); }
+
+function saveReadingRecord() {
+  const vals = READING_FIELDS.map(f => { const el = document.getElementById('rf-' + f); return el ? el.value.trim() : ''; });
+  if (_readingEditIdx >= 0) readingData.rows[_readingEditIdx] = vals;
+  else readingData.rows.unshift(vals);
+  saveReading();
+  closeReadingAdd();
+  renderReadingTable();
+  toast(_readingEditIdx >= 0 ? '已更新记录' : '已新增记录');
+}
+
+function deleteReadingRecord(i) {
+  if (!confirm('确定删除这条记录吗？')) return;
+  readingData.rows.splice(i, 1);
+  saveReading();
+  renderReadingTable();
+  toast('已删除记录');
+}
+
+const _readingModalEl = document.getElementById('readingAddModal');
+if (_readingModalEl) _readingModalEl.addEventListener('click', e => { if (e.target.id === 'readingAddModal') closeReadingAdd(); });
 
 function readingFrameLoaded() {
   if (_readingLoadTimer) { clearTimeout(_readingLoadTimer); _readingLoadTimer = null; }
