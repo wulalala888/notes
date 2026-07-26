@@ -1098,6 +1098,33 @@
   </div>
 </div>
 
+<!-- ============ 同步令牌设置模态框 ============ -->
+<div class="modal-mask" id="tokenModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">设置同步令牌（PAT）</div>
+      <button class="modal-close" onclick="closeTokenModal()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);line-height:1.7">
+        输入 GitHub 个人访问令牌（PAT），需对 <code>wulalala888/notes</code> 仓库有 <b>contents 写权限</b>（勾选 repo 或细粒度选该仓库）。<br>
+        令牌仅保存在本机浏览器（localStorage），不会上传到任何服务器。留空保存可清除。
+      </div>
+      <div class="form-group">
+        <label class="form-label">GitHub PAT</label>
+        <input type="text" class="form-input" id="tokenInput" placeholder="ghp_xxx…" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="clearTokenModal()">清除</button>
+      <button class="btn btn-ghost" onclick="closeTokenModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveTokenModal()">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ 零零碎碎：添加内容模态框 ============ -->
 <div class="modal-mask" id="miscAddModal">
   <div class="modal">
@@ -1587,6 +1614,15 @@ if (_embedUrlModalEl) {
     if (e.key === 'Enter') { e.preventDefault(); saveEmbedUrl(); }
   });
 }
+const _tokenModalEl = document.getElementById('tokenModal');
+if (_tokenModalEl) {
+  _tokenModalEl.addEventListener('click', e => {
+    if (e.target.id === 'tokenModal') closeTokenModal();
+  });
+  document.getElementById('tokenInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); saveTokenModal(); }
+  });
+}
 
 /* 全局搜索（简单过滤文档） */
 document.getElementById('globalSearch').addEventListener('input', e => {
@@ -1865,17 +1901,40 @@ const GH = {
   _persistDirty() { try { localStorage.setItem('wb_dirty', JSON.stringify(window.__dirty || {})); } catch (e) {} },
   hasDirty() { return Object.keys(this.getDirty()).length > 0; },
   _b64decodeStr(s) { try { return decodeURIComponent(escape(atob(s))); } catch (e) { return atob(s); } },
+  _tokenBad: false,
   async getCurrent() {
     const token = this.getToken();
     if (token) {
-      const head = await fetch(this.apiUrl(), { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' } });
-      if (head.ok) { const j = await head.json(); return { data: JSON.parse(this._b64decodeStr(j.content)), sha: j.sha }; }
-      if (head.status === 404) return { data: null, sha: null };
-      throw new Error('head ' + head.status);
+      try {
+        const head = await fetch(this.apiUrl(), { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' } });
+        if (head.ok) { const j = await head.json(); return { data: JSON.parse(this._b64decodeStr(j.content)), sha: j.sha }; }
+        if (head.status === 404) return { data: null, sha: null };
+        if (head.status === 401 || head.status === 403) { this._tokenBad = true; }
+      } catch (e) {}
+      // 令牌无效或 API 读取失败 → 回退匿名 raw 读取（公开仓库可读）
     }
-    const res = await fetch(this.rawUrl(), { cache: 'no-store' });
-    if (!res.ok) return { data: null, sha: null };
-    return { data: await res.json(), sha: null };
+    try {
+      const res = await fetch(this.rawUrl(), { cache: 'no-store' });
+      if (!res.ok) return { data: null, sha: null };
+      return { data: await res.json(), sha: null };
+    } catch (e) { return { data: null, sha: null }; }
+  },
+  async fetchCloudData() {
+    // 优先匿名 raw 读取（公开仓库，无需令牌、最稳，不受令牌状态影响）
+    try {
+      const res = await fetch(this.rawUrl(), { cache: 'no-store' });
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    // 回退：带鉴权 API（顺便探测令牌是否有效）
+    const token = this.getToken();
+    if (token) {
+      try {
+        const head = await fetch(this.apiUrl(), { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' } });
+        if (head.ok) { const j = await head.json(); return JSON.parse(this._b64decodeStr(j.content)); }
+        if (head.status === 401 || head.status === 403) this._tokenBad = true;
+      } catch (e) {}
+    }
+    return null;
   },
   buildLocalPayload() {
     return {
@@ -1888,6 +1947,7 @@ const GH = {
   async push(force) {
     const token = this.getToken();
     if (!token) { this.updateStatus('未配置令牌，无法同步', false); return false; }
+    if (this._tokenBad) { this.updateStatus('令牌已失效，点「设置令牌」重填', false); return false; }
     if (!force && !this.hasDirty()) return true;
     const dirty = Object.assign({}, this.getDirty());
     let cur;
@@ -1927,11 +1987,16 @@ const GH = {
     if (this._pulling) return this._pulling;
     this._pulling = (async () => {
       try {
-        let data = null;
-        try { const cur = await this.getCurrent(); data = cur.data; } catch (e) { data = null; }
-        if (!data) { this.updateStatus(this.getToken() ? '拉取失败' : '未配置令牌 · 仅本地', this.getToken() ? false : null); return false; }
+        const data = await this.fetchCloudData();
+        if (!data) {
+          if (!this.getToken()) this.updateStatus('未配置令牌 · 仅本地', null);
+          else if (this._tokenBad) this.updateStatus('令牌已失效，点「设置令牌」重填', false);
+          else this.updateStatus('拉取失败（网络/被拦截）', false);
+          return false;
+        }
         this.applyCloud(data);
-        this.updateStatus(this.getToken() ? '已同步 ✓ ' + this.fmt(Date.now()) : '本地模式', this.getToken() ? true : null);
+        if (!this.getToken()) this.updateStatus('本地模式（已读云端）', null);
+        else this.updateStatus('已同步 ✓ ' + this.fmt(Date.now()), true);
         return true;
       } finally { this._pulling = null; }
     })();
@@ -2000,15 +2065,7 @@ const GH = {
       fontFamily: 'system-ui,sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
     });
     document.body.appendChild(bar);
-    document.getElementById('ghSyncBtn').addEventListener('click', () => {
-      const cur = this.getToken();
-      const t = window.prompt('输入 GitHub 个人访问令牌（PAT，需对该仓库有 contents 写权限；仅存于本机浏览器，不会上传）：', cur);
-      if (t !== null) {
-        this.setToken(t);
-        this.updateStatus(this.getToken() ? '已配置，同步中…' : '未配置令牌');
-        if (this.getToken()) { this.pull().then(() => this.push(true)); }
-      }
-    });
+    document.getElementById('ghSyncBtn').addEventListener('click', () => { openTokenModal(); });
     // 自动拉取：每 15 秒 + 页面重新可见时；关闭页面前补推未完成的改动
     this._pullTimer = setInterval(() => this.pull(), 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) this.pull(); });
@@ -2258,6 +2315,37 @@ function saveEmbedUrl() {
   }
   closeEmbedUrlModal();
   toast(v ? '已保存链接 ✓' : '已清除链接');
+}
+
+/* ============ 同步令牌设置弹窗（替代 window.prompt，兼容 iOS Safari） ============ */
+function openTokenModal() {
+  const input = document.getElementById('tokenInput');
+  input.value = GH.getToken() || '';
+  document.getElementById('tokenModal').classList.add('show');
+  setTimeout(function(){ try { input.focus(); input.select(); } catch(e){} }, 60);
+}
+function closeTokenModal() { document.getElementById('tokenModal').classList.remove('show'); }
+function clearTokenModal() {
+  GH.setToken('');
+  GH._tokenBad = false;
+  closeTokenModal();
+  GH.updateStatus('未配置令牌');
+  if (typeof toast === 'function') toast('已清除令牌');
+}
+function saveTokenModal() {
+  const t = document.getElementById('tokenInput').value.trim();
+  GH._tokenBad = false;
+  GH.setToken(t);
+  closeTokenModal();
+  if (GH.getToken()) {
+    GH.updateStatus('已配置，同步中…');
+    GH._tokenBad = false;
+    GH.pull().then(() => GH.push(true));
+    if (typeof toast === 'function') toast('已保存令牌，正在同步 ✓');
+  } else {
+    GH.updateStatus('未配置令牌');
+    if (typeof toast === 'function') toast('已清除令牌');
+  }
 }
 
 function readingReload() { renderReadingTable(); }
