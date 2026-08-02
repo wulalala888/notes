@@ -1,5 +1,5 @@
 {
-  "_rev": 20,
+  "_rev": 21,
   "docs": {
     "synced_at": 1784916631657,
     "items": [
@@ -62,7 +62,7 @@
   "video": {
     "shows": [
       {
-        "id": "v_1785660899409_5phfl",
+        "id": "v_1785660918168_w9les",
         "tmdbId": 295558,
         "name": "雀骨",
         "poster": "/858HgKLO9hZkYs2tS7ZPkqh9HVr.jpg",
@@ -78,7 +78,7 @@
         "nextEpDate": "",
         "myEp": 0,
         "myStatus": "想看",
-        "lastFetched": 1785660899409
+        "lastFetched": 1785660918168
       },
       {
         "id": "v_1785660273624_hox1k",
@@ -100,7 +100,7 @@
         "lastFetched": 1785660287781
       }
     ],
-    "synced_at": 1785660901186
+    "synced_at": 1785660919483
   },
   "reading": {
     "headers": [
