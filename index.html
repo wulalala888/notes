@@ -1909,12 +1909,22 @@ async function tmdbFetch(path, params) {
   u.searchParams.set('api_key', key);
   u.searchParams.set('language', 'zh-CN');
   if (params) Object.entries(params).forEach(function(kv){ u.searchParams.set(kv[0], kv[1]); });
-  const res = await fetch(u.toString());
-  if (!res.ok) {
-    if (res.status === 401) throw new Error('BAD_KEY');
-    throw new Error('TMDB_' + res.status);
+  const ctrl = new AbortController();
+  const timer = setTimeout(function(){ ctrl.abort(); }, 13000);
+  try {
+    const res = await fetch(u.toString(), { signal: ctrl.signal });
+    if (!res.ok) {
+      if (res.status === 401) throw new Error('BAD_KEY');
+      if (res.status === 404) throw new Error('TMDB_404');
+      throw new Error('TMDB_' + res.status);
+    }
+    return await res.json();
+  } catch(e) {
+    if (e.name === 'AbortError') throw new Error('TIMEOUT');
+    throw e;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
 }
 function parseTmdbShow(d, existing) {
   const lastEp = d.last_episode_to_air;
@@ -2023,6 +2033,8 @@ async function videoSearch() {
     let msg = '搜索失败';
     if (e.message === 'NO_KEY') msg = '请先设置 TMDB API Key';
     else if (e.message === 'BAD_KEY') msg = 'TMDB Key 无效，请检查';
+    else if (e.message === 'TIMEOUT') msg = '连接 TMDB 超时：请检查手机网络（可换 WiFi 或关闭蜂窝数据重试）';
+    else if (e.message && e.message.indexOf('TMDB_') === 0) msg = 'TMDB 返回错误：' + e.message;
     rEl.innerHTML = '<div style="padding:20px;text-align:center;color:#ff3b30;font-size:13px">' + msg + '</div>';
   }
 }
@@ -2042,6 +2054,8 @@ async function videoPick(tmdbId) {
     let msg = '抓取失败';
     if (e.message === 'NO_KEY') msg = '请先设置 TMDB API Key';
     else if (e.message === 'BAD_KEY') msg = 'TMDB Key 无效';
+    else if (e.message === 'TIMEOUT') msg = '连接 TMDB 超时：请检查手机网络（可换 WiFi 或关闭蜂窝数据重试）';
+    else if (e.message && e.message.indexOf('TMDB_') === 0) msg = 'TMDB 返回错误：' + e.message;
     rEl.innerHTML = '<div style="padding:20px;text-align:center;color:#ff3b30;font-size:13px">' + msg + '</div>';
   }
 }
@@ -2059,6 +2073,8 @@ async function videoRefreshOne(idx) {
     let msg = '刷新失败';
     if (e.message === 'NO_KEY') msg = '请先设置 TMDB API Key';
     else if (e.message === 'BAD_KEY') msg = 'TMDB Key 无效';
+    else if (e.message === 'TIMEOUT') msg = '连接 TMDB 超时：请检查手机网络（可换 WiFi 或关闭蜂窝数据重试）';
+    else if (e.message && e.message.indexOf('TMDB_') === 0) msg = 'TMDB 返回错误：' + e.message;
     toast(msg);
   }
 }
