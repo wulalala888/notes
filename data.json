@@ -1,5 +1,5 @@
 {
-  "_rev": 19,
+  "_rev": 20,
   "docs": {
     "synced_at": 1784916631657,
     "items": [
@@ -62,6 +62,25 @@
   "video": {
     "shows": [
       {
+        "id": "v_1785660899409_5phfl",
+        "tmdbId": 295558,
+        "name": "雀骨",
+        "poster": "/858HgKLO9hZkYs2tS7ZPkqh9HVr.jpg",
+        "overview": "当魔头将军强娶沉迷机关术的财迷假千金，从契约夫妻到生死局里互扒马甲，爱意与杀意同生共长，揭朝堂阴谋，破生死乱局，守家国太平。",
+        "totalEps": 28,
+        "seasons": 1,
+        "airedEps": 28,
+        "status": "Ended",
+        "statusZh": "已完结",
+        "lastEpText": "S01E28",
+        "lastEpDate": "2026-07-22",
+        "nextEpText": "",
+        "nextEpDate": "",
+        "myEp": 0,
+        "myStatus": "想看",
+        "lastFetched": 1785660899409
+      },
+      {
         "id": "v_1785660273624_hox1k",
         "tmdbId": 295599,
         "name": "御廷谣",
@@ -81,7 +100,7 @@
         "lastFetched": 1785660287781
       }
     ],
-    "synced_at": 1785660289311
+    "synced_at": 1785660901186
   },
   "reading": {
     "headers": [
