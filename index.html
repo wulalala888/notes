@@ -2224,7 +2224,7 @@ const GH = {
       orders: { synced_at: (window.__ordersState ? window.__ordersState.synced_at : 0), items: (typeof orders !== 'undefined' ? orders : []) }
     };
   },
-  async push(force) {
+  async push(force, _attempt = 0) {
     const token = this.getToken();
     if (!token) { this.updateStatus('未配置令牌，无法同步', false); return false; }
     if (this._tokenBad) { this.updateStatus('令牌已失效，点「设置令牌」重填', false); return false; }
@@ -2239,7 +2239,7 @@ const GH = {
     ['docs', 'video', 'reading', 'orders'].forEach(f => {
       const localF = local[f];
       if (!cloud) { localF.synced_at = now; merged[f] = localF; return; }
-      const cloudF = cloud[f] || (f === 'video' ? { shows: [], synced_at: 0 } : f === 'reading' ? { headers: [], rows: [] } : { items: [] });
+      const cloudF = cloud[f] || (f === 'video' ? { shows: [], synced_at: 0 } : f === 'reading' ? { headers: [], rows: [], synced_at: 0 } : { items: [] });
       if (dirty[f]) { localF.synced_at = now; merged[f] = localF; }
       else { merged[f] = cloudF; }
     });
@@ -2259,6 +2259,13 @@ const GH = {
       }
       const txt = await res.text();
       console.warn('gh push failed', res.status, txt);
+      // 冲突（云端已被其他设备改动）：重新读取最新版本并合并重试，最多 3 次
+      if ((res.status === 409 || res.status === 422) && _attempt < 3) {
+        this.updateStatus('云端有更新，正在合并…', null);
+        await new Promise(r => setTimeout(r, 300 * (_attempt + 1)));
+        return this.push(force, _attempt + 1);
+      }
+      if (res.status === 401 || res.status === 403) this._tokenBad = true;
       this.updateStatus('推送失败 (' + res.status + ')', false);
       return false;
     } catch (e) { console.warn('gh push error', e); this.updateStatus('推送错误', false); return false; }
@@ -2356,8 +2363,10 @@ const GH = {
     document.getElementById('ghSyncBtn').addEventListener('click', () => { openTokenModal(); });
     // 自动拉取：每 15 秒 + 页面重新可见时；关闭页面前补推未完成的改动
     this._pullTimer = setInterval(() => this.pull(), 15000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) this.pull(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { this.pull(); if (this.hasDirty()) this.push(); } });
     window.addEventListener('beforeunload', () => { if (this.hasDirty() && this.getToken()) { try { this.push(); } catch (e) {} } });
+    // 恢复网络时自动补拉+补推（离线编辑后回到在线，像 app 一样自动续传）
+    window.addEventListener('online', () => { this.pull().then(() => { if (this.hasDirty()) this.push(true); }); });
     return this.pull().then(() => { if (this.hasDirty()) return this.push(true); });
   }
 };
