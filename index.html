@@ -676,6 +676,28 @@
     display: inline-flex; align-items: center; justify-content: center;
   }
   .row-del-btn:hover { color: var(--red); background: var(--red-light); }
+
+/* ============ Video 影视追踪 ============ */
+.video-card{display:flex;gap:14px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);transition:box-shadow .2s}
+.video-card:hover{box-shadow:0 2px 12px rgba(0,0,0,0.06)}
+.video-poster{width:64px;height:96px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--surface-2)}
+.video-poster-empty{display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:10px}
+.v-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;line-height:1.6}
+.v-badge.ongoing{background:rgba(255,149,0,0.12);color:#FF9500}
+.v-badge.ended{background:rgba(142,142,147,0.14);color:#8E8E93}
+.v-badge.new{background:rgba(52,199,89,0.14);color:#34C759}
+.v-progress{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.v-progress-fill{height:100%;background:linear-gradient(90deg,#AF52DE,#5856D6);border-radius:3px;transition:width .3s}
+.v-status-tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:600}
+.v-status-watch{background:rgba(0,122,255,0.1);color:#007AFF}
+.v-status-done{background:rgba(52,199,89,0.12);color:#34C759}
+.v-status-want{background:rgba(175,82,222,0.1);color:#AF52DE}
+.v-status-hold{background:rgba(142,142,147,0.14);color:#8E8E93}
+.search-result{display:flex;gap:12px;padding:10px;border-radius:var(--radius);cursor:pointer;align-items:flex-start;transition:background .15s}
+.search-result:hover{background:var(--surface-2)}
+.search-result img.search-poster{width:46px;height:69px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--surface-2)}
+.search-poster-empty{width:46px;height:69px;border-radius:4px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-tertiary)}
+.btn-sm{padding:5px 10px;font-size:12px;gap:3px}
 </style>
 </head>
 <body>
@@ -962,7 +984,7 @@
         </div>
       </section>
 
-      <!-- ============ Video 视图 ============ -->
+      <!-- ============ Video 影视追踪 ============ -->
       <section class="view" id="view-video">
         <!-- 顶部工具栏 -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
@@ -971,30 +993,28 @@
               <svg fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24" style="width:20px;height:20px"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
             </div>
             <div>
-              <div style="font-size:15px;font-weight:600">影视清单</div>
-              <div style="font-size:12px;color:var(--text-tertiary)" id="videoCount">飞书多维表格 · 实时同步</div>
+              <div style="font-size:15px;font-weight:600">影视追踪</div>
+              <div style="font-size:12px;color:var(--text-tertiary)" id="videoCount">TMDB 自动抓取更新进度</div>
             </div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn btn-ghost" onclick="videoReload()">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-ghost" onclick="videoRefreshAll()">
               <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              刷新
+              刷新全部
             </button>
-            <button class="btn btn-ghost" onclick="videoOpenNew()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-              新窗口打开
+            <button class="btn btn-ghost" onclick="openTmdbKeyModal()" id="tmdbKeyBtn">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              TMDB Key
             </button>
-            <button class="btn btn-primary" onclick="videoSetUrl()" style="text-decoration:none">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-              设置链接
+            <button class="btn btn-primary" onclick="openVideoSearch()">
+              <svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+              添加剧集
             </button>
           </div>
         </div>
 
-        <!-- 飞书多维表格内嵌 -->
-        <div class="card" style="padding:0;overflow:hidden">
-          <div id="videoEmbedWrap" style="min-height:78vh;min-height:78dvh"></div>
-        </div>
+        <!-- 剧集列表 -->
+        <div id="videoListWrap"></div>
       </section>
 
       <!-- ============ Video CSV 导入模态框（已移除，改用飞书内嵌） ============ -->
@@ -1231,6 +1251,91 @@
   </div>
 </div>
 
+<!-- ============ Video 添加剧集（TMDB 搜索）模态框 ============ -->
+<div class="modal-mask" id="videoSearchModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">添加剧集</div>
+      <button class="modal-close" onclick="closeVideoSearch()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">搜索剧集名称</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" class="form-input" id="videoSearchInput" placeholder="如：绝命毒师 / Breaking Bad" onkeydown="if(event.key==='Enter')videoSearch()">
+          <button class="btn btn-primary" onclick="videoSearch()">搜索</button>
+        </div>
+      </div>
+      <div id="videoSearchResults" style="margin-top:8px;max-height:50vh;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeVideoSearch()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Video 编辑进度模态框 ============ -->
+<div class="modal-mask" id="videoEditModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="videoEditTitle">编辑观看进度</div>
+      <button class="modal-close" onclick="closeVideoEdit()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">我看到第几集</label>
+        <input type="number" class="form-input" id="videoEditMyEp" min="0" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">观看状态</label>
+        <select class="form-select" id="videoEditMyStatus">
+          <option value="想看">想看</option>
+          <option value="在看">在看</option>
+          <option value="已看完">已看完</option>
+          <option value="搁置">搁置</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeVideoEdit()">取消</button>
+      <button class="btn btn-primary" onclick="saveVideoEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TMDB API Key 设置模态框 ============ -->
+<div class="modal-mask" id="tmdbKeyModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">设置 TMDB API Key</div>
+      <button class="modal-close" onclick="closeTmdbKeyModal()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);line-height:1.7">
+        影视追踪使用 <b>TMDB（The Movie Database）</b> 免费 API 自动抓取剧集的更新进度（总集数、播出状态、最新集）。<br>
+        ① 注册 <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener" style="color:#007AFF">themoviedb.org</a>（免费）；<br>
+        ② 进入「Settings → API」申请 API Key（v3）；<br>
+        ③ 将 API Key 粘贴到下方。Key 仅保存在本机浏览器，不会上传。
+      </div>
+      <div class="form-group">
+        <label class="form-label">TMDB API Key (v3)</label>
+        <input type="text" class="form-input" id="tmdbKeyInput" placeholder="如：1a2b3c4d5e6f…" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="clearTmdbKeyModal()">清除</button>
+      <button class="btn btn-ghost" onclick="closeTmdbKeyModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveTmdbKeyModal()">保存</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1248,7 +1353,7 @@ const viewMeta = {
   dashboard: { title: '数据看板', sub: '实时监控核心指标与业务趋势' },
   docs: { title: '文档中心', sub: '整理、收藏与管理你的资料' },
   reading: { title: 'Reading', sub: '阅读清单 · 飞书表格' },
-  video: { title: 'Video', sub: '视频清单 · 飞书表格' },
+  video: { title: 'Video', sub: '影视追踪 · TMDB 自动抓取更新进度' },
   misc: { title: '零零碎碎', sub: '零散想法与随手记' },
   billing: { title: '账单', sub: '收支记录与财务管理' }
 };
@@ -1761,184 +1866,283 @@ function copyVideoPwd() {
     });
 }
 
-/* ============ Video 本地表格（CSV 导入/导出/可编辑/云端同步） ============ */
+/* ============ Video 影视追踪（TMDB 自动抓取 + 本地进度同步） ============ */
 const VIDEO_KEY = 'workbench_video_data';
 const VIDEO_SYNC_KEY = 'linda_video_list';
+const TMDB_KEY_STORAGE = 'wb_tmdb_key';
+const TMDB_IMG = 'https://image.tmdb.org/t/p/';
 let videoData = loadVideo();
-let videoEditMode = true;
+let _videoEditIdx = -1;
 
 function loadVideo() {
-  try { return JSON.parse(localStorage.getItem(VIDEO_KEY)) || { headers: [], rows: [] }; }
-  catch(e) { return { headers: [], rows: [] }; }
+  try {
+    const d = JSON.parse(localStorage.getItem(VIDEO_KEY));
+    if (d && Array.isArray(d.shows)) return d;
+  } catch(e) {}
+  return { shows: [], synced_at: 0 };
 }
-function saveVideo() { localStorage.setItem(VIDEO_KEY, JSON.stringify(videoData)); (window.__dirty = window.__dirty || {}).video = true; if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
-
-function toggleVideoEditMode() {
-  videoEditMode = !videoEditMode;
-  const toggle = document.getElementById('videoEditToggle');
-  const label = document.getElementById('videoEditToggleLabel');
-  if (videoEditMode) {
-    toggle.classList.add('edit-toggle-edit');
-    toggle.classList.remove('edit-toggle-view');
-    label.textContent = '可编辑';
-  } else {
-    toggle.classList.remove('edit-toggle-edit');
-    toggle.classList.add('edit-toggle-view');
-    label.textContent = '仅阅读';
+function saveVideo() {
+  localStorage.setItem(VIDEO_KEY, JSON.stringify(videoData));
+  (window.__dirty = window.__dirty || {}).video = true;
+  if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush();
+}
+function getTmdbKey() {
+  try { return localStorage.getItem(TMDB_KEY_STORAGE) || ''; } catch(e) { return ''; }
+}
+function tmdbPoster(path, size) {
+  if (!path) return '';
+  return TMDB_IMG + (size || 'w185') + path;
+}
+function statusToZh(st) {
+  if (!st) return '未知';
+  const m = { 'Returning Series':'更新中', 'Ended':'已完结', 'Canceled':'已取消', 'Pilot':'试播', 'In Production':'制作中' };
+  return m[st] || st;
+}
+function myStatusTag(st) {
+  const cls = st === '在看' ? 'v-status-watch' : st === '已看完' ? 'v-status-done' : st === '搁置' ? 'v-status-hold' : 'v-status-want';
+  return '<span class="v-status-tag ' + cls + '">' + (st || '想看') + '</span>';
+}
+async function tmdbFetch(path, params) {
+  const key = getTmdbKey();
+  if (!key) throw new Error('NO_KEY');
+  const u = new URL('https://api.themoviedb.org/3' + path);
+  u.searchParams.set('api_key', key);
+  u.searchParams.set('language', 'zh-CN');
+  if (params) Object.entries(params).forEach(function(kv){ u.searchParams.set(kv[0], kv[1]); });
+  const res = await fetch(u.toString());
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('BAD_KEY');
+    throw new Error('TMDB_' + res.status);
   }
-  renderVideoTable();
-  toast(videoEditMode ? '已切换为可编辑模式' : '已切换为仅阅读模式');
+  return res.json();
 }
-
+function parseTmdbShow(d, existing) {
+  const lastEp = d.last_episode_to_air;
+  const nextEp = d.next_episode_to_air;
+  return {
+    id: (existing && existing.id) ? existing.id : ('v_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)),
+    tmdbId: d.id,
+    name: d.name || d.original_name || '',
+    poster: d.poster_path || '',
+    overview: (d.overview || '').slice(0, 200),
+    totalEps: d.number_of_episodes || 0,
+    seasons: d.number_of_seasons || 0,
+    airedEps: d.number_of_episodes || 0,
+    status: d.status || '',
+    statusZh: statusToZh(d.status),
+    lastEpText: lastEp ? ('S' + String(lastEp.season_number).padStart(2,'0') + 'E' + String(lastEp.episode_number).padStart(2,'0')) : '',
+    lastEpDate: (lastEp && lastEp.air_date) ? lastEp.air_date : '',
+    nextEpText: nextEp ? ('S' + String(nextEp.season_number).padStart(2,'0') + 'E' + String(nextEp.episode_number).padStart(2,'0')) : '',
+    nextEpDate: (nextEp && nextEp.air_date) ? nextEp.air_date : '',
+    myEp: existing ? (existing.myEp || 0) : 0,
+    myStatus: existing ? (existing.myStatus || '想看') : '想看',
+    lastFetched: Date.now()
+  };
+}
 function renderVideoTable() {
-  renderVideoEmbed();
-  return;
-}
-function _videoTable_deprecated() {
-  const wrap = document.getElementById('videoTableWrap');
+  const wrap = document.getElementById('videoListWrap');
+  if (!wrap) return;
+  const shows = videoData.shows || [];
   const countEl = document.getElementById('videoCount');
-  countEl.textContent = `共 ${videoData.rows.length} 条记录`;
-  if (videoData.headers.length === 0 || videoData.rows.length === 0) {
-    wrap.innerHTML = `
-      <div style="padding:60px 20px;text-align:center;color:var(--text-tertiary)">
-        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:12px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-        <div style="font-size:14px;margin-bottom:6px">暂无数据</div>
-        <div style="font-size:12px">点击「导入 CSV」粘贴飞书表格内容，或点击「飞书原表」打开源表格</div>
-      </div>`;
+  if (countEl) countEl.textContent = getTmdbKey() ? ('共 ' + shows.length + ' 部 · TMDB 自动抓取') : ('共 ' + shows.length + ' 部 · 未配置 TMDB Key');
+  // update TMDB button label
+  const kb = document.getElementById('tmdbKeyBtn');
+  if (kb) kb.classList.toggle('btn-primary', !getTmdbKey());
+  if (shows.length === 0) {
+    wrap.innerHTML = '<div style="padding:60px 20px;text-align:center;color:var(--text-tertiary)">' +
+      '<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:12px;opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>' +
+      '<div style="font-size:14px;margin-bottom:6px">还没有添加剧集</div>' +
+      '<div style="font-size:12px;margin-bottom:14px">点击「添加剧集」搜索剧名，自动抓取更新进度</div>' +
+      '<button class="btn btn-primary" onclick="openVideoSearch()">+ 添加剧集</button></div>';
     return;
   }
-  const editable = videoEditMode;
-  let html = '<table><thead><tr>';
-  html += '<th style="width:48px;text-align:center">#</th>';
-  videoData.headers.forEach((h, ci) => {
-    if (editable) {
-      html += `<th><span class="edit-cell" contenteditable="true" data-vtype="header" data-vcol="${ci}" onblur="saveVideoCellEdit(this)">${escapeHtml(h)}</span></th>`;
-    } else {
-      html += `<th>${escapeHtml(h)}</th>`;
-    }
-  });
-  if (editable) html += '<th style="width:48px;text-align:center">操作</th>';
-  html += '</tr></thead><tbody>';
-  videoData.rows.forEach((row, idx) => {
-    html += `<tr><td style="text-align:center;color:var(--text-tertiary)">${idx + 1}</td>`;
-    videoData.headers.forEach((headerName, ci) => {
-      const cellValue = row[ci] ?? '';
-      const isPhotoCol = /照片|图片|image|photo|封面/i.test(headerName);
-      const isImageFile = /^IMG_|\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(cellValue.trim());
-      if (isPhotoCol && isImageFile && cellValue.trim()) {
-        // 照片列：显示缩略图占位
-        if (editable) {
-          html += `<td><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:44px;height:44px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden"><svg fill="none" stroke="var(--text-quaternary)" stroke-width="1.5" viewBox="0 0 24 24" style="width:20px;height:20px"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div><span class="edit-cell" contenteditable="true" data-vtype="cell" data-vrow="${idx}" data-vcol="${ci}" onblur="saveVideoCellEdit(this)" style="font-size:10px;color:var(--text-tertiary)">${escapeHtml(cellValue)}</span></div></td>`;
-        } else {
-          html += `<td><div style="display:flex;align-items:center;gap:8px"><div style="width:40px;height:40px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg fill="none" stroke="var(--text-quaternary)" stroke-width="1.5" viewBox="0 0 24 24" style="width:18px;height:18px"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div><span style="font-size:11px;color:var(--text-tertiary)">${escapeHtml(cellValue)}</span></div></td>`;
-        }
-      } else if (editable) {
-        html += `<td><span class="edit-cell" contenteditable="true" data-vtype="cell" data-vrow="${idx}" data-vcol="${ci}" onblur="saveVideoCellEdit(this)">${escapeHtml(cellValue)}</span></td>`;
-      } else {
-        html += `<td>${escapeHtml(cellValue)}</td>`;
-      }
-    });
-    if (editable) {
-      html += `<td style="text-align:center"><button class="row-del-btn" onclick="deleteVideoRow(${idx})" title="删除此行"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:15px;height:15px"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg></button></td>`;
-    }
-    html += '</tr>';
-  });
-  html += '</tbody></table>';
-  if (editable) {
-    html += '<div style="padding:12px 16px;border-top:1px solid var(--divider)"><button class="btn btn-ghost" onclick="addVideoRow()" style="font-size:13px"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg> 添加新行</button></div>';
-  }
+  let html = '<div style="display:flex;flex-direction:column;gap:12px">';
+  shows.forEach(function(s, idx){ html += renderVideoCard(s, idx); });
+  html += '</div>';
   wrap.innerHTML = html;
 }
-
-function saveVideoCellEdit(el) {
-  const type = el.dataset.vtype;
-  const col = parseInt(el.dataset.vcol);
-  const value = el.textContent.trim();
-  if (type === 'header') {
-    videoData.headers[col] = value;
-  } else {
-    const row = parseInt(el.dataset.vrow);
-    videoData.rows[row][col] = value;
+function renderVideoCard(s, idx) {
+  const hasNew = s.airedEps > s.myEp && s.statusZh === '更新中';
+  const pct = s.totalEps > 0 ? Math.min(100, Math.round(s.myEp / s.totalEps * 100)) : 0;
+  const poster = s.poster ? tmdbPoster(s.poster, 'w185') : '';
+  const posterHtml = poster ? '<img class="video-poster" src="' + poster + '" alt="" loading="lazy">' : '<div class="video-poster video-poster-empty">无图</div>';
+  let badge = '';
+  if (hasNew) badge = '<span class="v-badge new">有新集</span>';
+  else if (s.statusZh === '更新中') badge = '<span class="v-badge ongoing">更新中</span>';
+  else badge = '<span class="v-badge ended">' + s.statusZh + '</span>';
+  let nextLine = '';
+  if (s.nextEpDate) nextLine = '<div style="font-size:12px;color:var(--text-tertiary);margin-top:6px">下一集 ' + escapeHtml(s.nextEpText) + ' · ' + s.nextEpDate + '</div>';
+  else if (s.lastEpDate) nextLine = '<div style="font-size:12px;color:var(--text-tertiary);margin-top:6px">最新 ' + escapeHtml(s.lastEpText) + ' · ' + s.lastEpDate + '</div>';
+  return '<div class="video-card">' + posterHtml +
+    '<div style="flex:1;min-width:0">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">' +
+        '<div style="min-width:0"><div style="font-weight:600;font-size:15px;word-break:break-word">' + escapeHtml(s.name) + '</div>' +
+        '<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px">' + s.seasons + '季 · 共' + s.totalEps + '集 · ' + myStatusTag(s.myStatus) + '</div></div>' +
+        badge +
+      '</div>' +
+      '<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);margin-bottom:4px">' +
+        '<span>我看到第 ' + s.myEp + ' 集</span>' +
+        '<span>' + (hasNew ? ('已更新到第 ' + s.airedEps + ' 集') : (s.totalEps > 0 ? (s.myEp + '/' + s.totalEps) : '')) + '</span>' +
+      '</div><div class="v-progress"><div class="v-progress-fill" style="width:' + pct + '%"></div></div></div>' +
+      nextLine +
+      '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">' +
+        '<button class="btn btn-sm btn-primary" onclick="videoEpPlus(' + idx + ')">+1集</button>' +
+        '<button class="btn btn-sm btn-ghost" onclick="openVideoEdit(' + idx + ')">编辑</button>' +
+        '<button class="btn btn-sm btn-ghost" onclick="videoRefreshOne(' + idx + ')">刷新进度</button>' +
+        '<button class="btn btn-sm btn-ghost" onclick="videoDelete(' + idx + ')">删除</button>' +
+      '</div>' +
+    '</div></div>';
+}
+function openVideoSearch() {
+  if (!getTmdbKey()) { openTmdbKeyModal(); return; }
+  document.getElementById('videoSearchInput').value = '';
+  document.getElementById('videoSearchResults').innerHTML = '';
+  document.getElementById('videoSearchModal').classList.add('show');
+  setTimeout(function(){ const el = document.getElementById('videoSearchInput'); if (el) el.focus(); }, 80);
+}
+function closeVideoSearch() { document.getElementById('videoSearchModal').classList.remove('show'); }
+async function videoSearch() {
+  const q = document.getElementById('videoSearchInput').value.trim();
+  if (!q) return;
+  const rEl = document.getElementById('videoSearchResults');
+  rEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:13px">搜索中…</div>';
+  try {
+    const data = await tmdbFetch('/search/tv', { query: q });
+    const results = data.results || [];
+    if (results.length === 0) { rEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:13px">没有找到相关剧集</div>'; return; }
+    rEl.innerHTML = results.slice(0, 10).map(function(r){
+      const yr = r.first_air_date ? r.first_air_date.slice(0,4) : '';
+      const ov = r.overview ? (' · ' + escapeHtml(r.overview.slice(0,60))) : '';
+      const img = r.poster_path ? '<img class="search-poster" src="' + tmdbPoster(r.poster_path,'w92') + '" loading="lazy">' : '<div class="search-poster-empty">无图</div>';
+      const dup = videoData.shows.some(function(s){ return s.tmdbId === r.id; });
+      return '<div class="search-result" onclick="videoPick(' + r.id + ')"' + (dup ? ' style="opacity:0.5"' : '') + '>' + img +
+        '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">' + escapeHtml(r.name || r.original_name || '') + (dup ? ' <span style="font-size:11px;color:var(--text-tertiary)">已添加</span>' : '') + '</div>' +
+        '<div style="font-size:12px;color:var(--text-tertiary)">' + yr + ov + '</div></div></div>';
+    }).join('');
+  } catch(e) {
+    let msg = '搜索失败';
+    if (e.message === 'NO_KEY') msg = '请先设置 TMDB API Key';
+    else if (e.message === 'BAD_KEY') msg = 'TMDB Key 无效，请检查';
+    rEl.innerHTML = '<div style="padding:20px;text-align:center;color:#ff3b30;font-size:13px">' + msg + '</div>';
+  }
+}
+async function videoPick(tmdbId) {
+  if (videoData.shows.some(function(s){ return s.tmdbId === tmdbId; })) { toast('这部剧已经在清单里了'); return; }
+  const rEl = document.getElementById('videoSearchResults');
+  rEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:13px">抓取剧集信息中…</div>';
+  try {
+    const d = await tmdbFetch('/tv/' + tmdbId);
+    const show = parseTmdbShow(d, null);
+    videoData.shows.unshift(show);
+    saveVideo();
+    closeVideoSearch();
+    renderVideoTable();
+    toast('已添加：' + show.name);
+  } catch(e) {
+    let msg = '抓取失败';
+    if (e.message === 'NO_KEY') msg = '请先设置 TMDB API Key';
+    else if (e.message === 'BAD_KEY') msg = 'TMDB Key 无效';
+    rEl.innerHTML = '<div style="padding:20px;text-align:center;color:#ff3b30;font-size:13px">' + msg + '</div>';
+  }
+}
+async function videoRefreshOne(idx) {
+  const s = videoData.shows[idx];
+  if (!s) return;
+  toast('刷新中…');
+  try {
+    const d = await tmdbFetch('/tv/' + s.tmdbId);
+    videoData.shows[idx] = parseTmdbShow(d, s);
+    saveVideo();
+    renderVideoTable();
+    toast('已刷新：' + s.name);
+  } catch(e) {
+    let msg = '刷新失败';
+    if (e.message === 'NO_KEY') msg = '请先设置 TMDB API Key';
+    else if (e.message === 'BAD_KEY') msg = 'TMDB Key 无效';
+    toast(msg);
+  }
+}
+async function videoRefreshAll() {
+  const shows = videoData.shows || [];
+  if (shows.length === 0) { toast('清单为空'); return; }
+  if (!getTmdbKey()) { openTmdbKeyModal(); return; }
+  toast('正在刷新全部…');
+  let ok = 0;
+  for (let i = 0; i < shows.length; i++) {
+    try {
+      const d = await tmdbFetch('/tv/' + shows[i].tmdbId);
+      videoData.shows[i] = parseTmdbShow(d, shows[i]);
+      ok++;
+    } catch(e) {}
   }
   saveVideo();
-  syncVideoToCloud();
-}
-
-function deleteVideoRow(idx) {
-  videoData.rows.splice(idx, 1);
-  saveVideo();
-  syncVideoToCloud();
   renderVideoTable();
-  toast('已删除第 ' + (idx + 1) + ' 行');
+  toast('已刷新 ' + ok + '/' + shows.length + ' 部');
 }
-
-function addVideoRow() {
-  const newRow = videoData.headers.map(() => '');
-  videoData.rows.push(newRow);
-  saveVideo();
-  syncVideoToCloud();
-  renderVideoTable();
-  setTimeout(() => {
-    const cells = document.querySelectorAll('.edit-cell[data-vtype="cell"]');
-    const lastRowCells = Array.from(cells).filter(c => parseInt(c.dataset.vrow) === videoData.rows.length - 1);
-    if (lastRowCells[0]) lastRowCells[0].focus();
-  }, 50);
-}
-
-function openVideoCsvModal() { document.getElementById('videoCsvModal').classList.add('show'); document.getElementById('videoCsvInput').focus(); }
-function closeVideoCsvModal() { document.getElementById('videoCsvModal').classList.remove('show'); }
-
-function importVideoCsv() {
-  const text = document.getElementById('videoCsvInput').value.trim();
-  if (!text) { toast('请粘贴 CSV 数据'); return; }
-  const parsed = parseCsv(text);
-  if (parsed.headers.length === 0) { toast('未解析到有效数据'); return; }
-  const replace = document.getElementById('videoCsvReplace').checked;
-  if (replace) {
-    videoData = parsed;
-  } else {
-    if (videoData.headers.length === 0) {
-      videoData = parsed;
-    } else {
-      parsed.rows.forEach(row => videoData.rows.push(row));
-    }
-  }
+function videoEpPlus(idx) {
+  const s = videoData.shows[idx];
+  if (!s) return;
+  s.myEp = (s.myEp || 0) + 1;
+  if (s.totalEps > 0 && s.myEp >= s.totalEps) s.myStatus = '已看完';
+  else if (s.myStatus === '想看') s.myStatus = '在看';
   saveVideo();
   renderVideoTable();
-  closeVideoCsvModal();
-  document.getElementById('videoCsvInput').value = '';
-  syncVideoToCloud().then(ok => toast(ok ? `已导入 ${parsed.rows.length} 条记录，已同步到云端 ✓` : `已导入 ${parsed.rows.length} 条记录，但同步失败（请检查左下角令牌）`));
+  toast('已记录：第 ' + s.myEp + ' 集');
 }
-
-function exportVideoCsv() {
-  if (videoData.rows.length === 0) { toast('暂无数据可导出'); return; }
-  const csv = toCsv(videoData.headers, videoData.rows);
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'video_list.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('已导出 video_list.csv');
-}
-
-function clearVideo() {
-  if (videoData.rows.length === 0) { toast('表格已是空的'); return; }
-  if (!confirm('确定清空所有影视清单数据？此操作不可撤销。')) return;
-  videoData = { headers: [], rows: [] };
+function videoDelete(idx) {
+  const s = videoData.shows[idx];
+  if (!s) return;
+  if (!confirm('确定从清单删除「' + s.name + '」吗？')) return;
+  videoData.shows.splice(idx, 1);
   saveVideo();
-  syncVideoToCloud();
   renderVideoTable();
-  toast('已清空');
+  toast('已删除');
 }
-
-const _videoCsvModalEl = document.getElementById('videoCsvModal');
-if (_videoCsvModalEl) {
-  _videoCsvModalEl.addEventListener('click', e => {
-    if (e.target.id === 'videoCsvModal') closeVideoCsvModal();
-  });
+function openVideoEdit(idx) {
+  const s = videoData.shows[idx];
+  if (!s) return;
+  _videoEditIdx = idx;
+  document.getElementById('videoEditTitle').textContent = '编辑：' + s.name;
+  document.getElementById('videoEditMyEp').value = s.myEp || 0;
+  document.getElementById('videoEditMyStatus').value = s.myStatus || '想看';
+  document.getElementById('videoEditModal').classList.add('show');
 }
+function closeVideoEdit() { document.getElementById('videoEditModal').classList.remove('show'); }
+function saveVideoEdit() {
+  const s = videoData.shows[_videoEditIdx];
+  if (!s) return;
+  s.myEp = parseInt(document.getElementById('videoEditMyEp').value) || 0;
+  s.myStatus = document.getElementById('videoEditMyStatus').value;
+  saveVideo();
+  closeVideoEdit();
+  renderVideoTable();
+  toast('已更新');
+}
+function openTmdbKeyModal() {
+  document.getElementById('tmdbKeyInput').value = getTmdbKey();
+  document.getElementById('tmdbKeyModal').classList.add('show');
+  setTimeout(function(){ const el = document.getElementById('tmdbKeyInput'); if (el) el.focus(); }, 80);
+}
+function closeTmdbKeyModal() { document.getElementById('tmdbKeyModal').classList.remove('show'); }
+function saveTmdbKeyModal() {
+  const v = document.getElementById('tmdbKeyInput').value.trim();
+  if (v) localStorage.setItem(TMDB_KEY_STORAGE, v); else localStorage.removeItem(TMDB_KEY_STORAGE);
+  closeTmdbKeyModal();
+  renderVideoTable();
+  toast(v ? 'TMDB Key 已保存 ✓' : '已清除 TMDB Key');
+}
+function clearTmdbKeyModal() {
+  localStorage.removeItem(TMDB_KEY_STORAGE);
+  closeTmdbKeyModal();
+  renderVideoTable();
+  toast('已清除 TMDB Key');
+}
+const _videoSearchModalEl = document.getElementById('videoSearchModal');
+if (_videoSearchModalEl) _videoSearchModalEl.addEventListener('click', function(e){ if (e.target.id === 'videoSearchModal') closeVideoSearch(); });
+const _videoEditModalEl = document.getElementById('videoEditModal');
+if (_videoEditModalEl) _videoEditModalEl.addEventListener('click', function(e){ if (e.target.id === 'videoEditModal') closeVideoEdit(); });
+const _tmdbKeyModalEl = document.getElementById('tmdbKeyModal');
+if (_tmdbKeyModalEl) _tmdbKeyModalEl.addEventListener('click', function(e){ if (e.target.id === 'tmdbKeyModal') closeTmdbKeyModal(); });
 
 /* Video 云端同步 */
 /* ============ GitHub 云端同步模块（跨设备同步） ============ */
@@ -2015,7 +2219,7 @@ const GH = {
   buildLocalPayload() {
     return {
       docs: { synced_at: (window.__docsState ? window.__docsState.synced_at : 0), items: (typeof docs !== 'undefined' ? docs : []) },
-      video: (typeof videoData !== 'undefined' ? videoData : { headers: [], rows: [], synced_at: 0 }),
+      video: (typeof videoData !== 'undefined' ? videoData : { shows: [], synced_at: 0 }),
       reading: (typeof readingData !== 'undefined' ? readingData : { headers: [], rows: [], synced_at: 0 }),
       orders: { synced_at: (window.__ordersState ? window.__ordersState.synced_at : 0), items: (typeof orders !== 'undefined' ? orders : []) }
     };
@@ -2035,7 +2239,7 @@ const GH = {
     ['docs', 'video', 'reading', 'orders'].forEach(f => {
       const localF = local[f];
       if (!cloud) { localF.synced_at = now; merged[f] = localF; return; }
-      const cloudF = cloud[f] || (f === 'video' || f === 'reading' ? { headers: [], rows: [] } : { items: [] });
+      const cloudF = cloud[f] || (f === 'video' ? { shows: [], synced_at: 0 } : f === 'reading' ? { headers: [], rows: [] } : { items: [] });
       if (dirty[f]) { localF.synced_at = now; merged[f] = localF; }
       else { merged[f] = cloudF; }
     });
@@ -2097,10 +2301,11 @@ const GH = {
       return true;
     });
     take('video', (cf) => {
-      if (!Array.isArray(cf.rows)) return false;
-      const local = (typeof videoData !== 'undefined' ? videoData : { headers: [], rows: [] });
-      if (JSON.stringify(cf.rows) === JSON.stringify(local.rows) && JSON.stringify(cf.headers || []) === JSON.stringify(local.headers || [])) return false;
-      videoData = { headers: cf.headers || [], rows: cf.rows || [], synced_at: cf.synced_at || 0 };
+      // schema guard: 仅接受新结构 {shows:[]}；旧 {headers,rows} 不会覆盖本地
+      if (!Array.isArray(cf.shows)) return false;
+      const local = (typeof videoData !== 'undefined' ? videoData : { shows: [], synced_at: 0 });
+      if (JSON.stringify(cf.shows) === JSON.stringify(local.shows || [])) return false;
+      videoData = { shows: cf.shows || [], synced_at: cf.synced_at || 0 };
       try { localStorage.setItem(VIDEO_KEY, JSON.stringify(videoData)); } catch (e) {}
       if (typeof renderVideoTable === 'function') renderVideoTable();
       return true;
