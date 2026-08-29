@@ -693,6 +693,9 @@
 .v-status-done{background:rgba(52,199,89,0.12);color:#34C759}
 .v-status-want{background:rgba(175,82,222,0.1);color:#AF52DE}
 .v-status-hold{background:rgba(142,142,147,0.14);color:#8E8E93}
+.v-status-svip{background:rgba(255,149,0,0.14);color:#FF9500}
+.v-tier-vip{background:rgba(0,122,255,0.12);color:#007AFF}
+.v-tier-svip{background:rgba(255,149,0,0.16);color:#FF9500;font-weight:700}
 .search-result{display:flex;gap:12px;padding:10px;border-radius:var(--radius);cursor:pointer;align-items:flex-start;transition:background .15s}
 .search-result:hover{background:var(--surface-2)}
 .search-result img.search-poster{width:46px;height:69px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--surface-2)}
@@ -1195,7 +1198,6 @@
   </div>
 </div>
 
-
 <div class="modal-mask" id="readingAddModal">
   <div class="modal">
     <div class="modal-header">
@@ -1291,13 +1293,53 @@
         <input type="number" class="form-input" id="videoEditMyEp" min="0" placeholder="0">
       </div>
       <div class="form-group">
+        <label class="form-label">总集数（手动修正 TMDB 错误数据）</label>
+        <input type="number" class="form-input" id="videoEditTotalEps" min="0" placeholder="0">
+        <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px">如 TMDB 数据有误（如标 32 集实际只更到 11 集），手动改成真实数字</div>
+      </div>
+      <div class="form-group">
         <label class="form-label">观看状态</label>
         <select class="form-select" id="videoEditMyStatus">
           <option value="想看">想看</option>
           <option value="在看">在看</option>
           <option value="已看完">已看完</option>
           <option value="搁置">搁置</option>
+          <option value="SVIP/付费">SVIP/付费</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">备注（可选）</label>
+        <textarea class="form-input" id="videoEditNote" rows="2" placeholder="如：SVIP 锁集 11 集后；会员/付费说明等" style="resize:vertical"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">付费档位（VIP / SVIP）</label>
+        <select class="form-select" id="videoEditTier">
+          <option value="免费">免费</option>
+          <option value="VIP">VIP</option>
+          <option value="SVIP">SVIP</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">更新排期（什么时候更新哪几集）</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
+          <label style="font-size:12px;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="we0" value="0">日</label>
+          <label style="font-size:12px;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="we1" value="1">一</label>
+          <label style="font-size:12px;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="we2" value="2">二</label>
+          <label style="font-size:12px;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="we3" value="3">三</label>
+          <label style="font-size:12px;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="we4" value="4">四</label>
+          <label style="font-size:12px;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="we5" value="5">五</label>
+          <label style="font-size:12px;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="we6" value="6">六</label>
+          <a href="javascript:void(0)" onclick="videoSchedDaily()" style="font-size:12px;color:#007AFF;margin-left:4px">每天</a>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px"><label style="font-size:12px;color:var(--text-tertiary)">更新时间</label><input type="time" class="form-input" id="videoEditTime" value="20:00" style="margin-top:2px"></div>
+          <div style="flex:1;min-width:120px"><label style="font-size:12px;color:var(--text-tertiary)">每次更新集数</label><input type="number" class="form-input" id="videoEditPer" min="1" value="2" style="margin-top:2px"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <div style="flex:1;min-width:120px"><label style="font-size:12px;color:var(--text-tertiary)">起始集数（下次更新从哪集起）</label><input type="number" class="form-input" id="videoEditStartEp" min="1" value="1" style="margin-top:2px"></div>
+          <div style="flex:1;min-width:120px"><label style="font-size:12px;color:var(--text-tertiary)">起始日期（下次更新日期）</label><input type="date" class="form-input" id="videoEditStartDate" style="margin-top:2px"></div>
+        </div>
+        <div style="font-size:12px;color:var(--text-tertiary);margin-top:6px">不选星期 = 暂不排期；卡片会按排期列出未来几次更新及 VIP/SVIP</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -1339,6 +1381,221 @@
 <div class="toast" id="toast"></div>
 
 <script>
+
+/* ========== 跨设备同步内核（记录级 LWW 合并 / 墓碑删除 / 变更检测） ==========
+/* 放在脚本最前面：常量需在模块顶层代码（loadDocs 等）执行前完成初始化 */
+/* ========== 记录级 LWW 合并内核（跨设备同步的正确性基础） ==========
+   规则：
+   1) 每条记录带 _u（最后更新时间戳）。合并时同 id 取 _u 更大的一方，
+      而不是「本地无条件覆盖云端」——否则 A 设备的改动会被 B 设备的旧副本回滚。
+   2) 删除用「墓碑」(_d:true) 传播，保留 30 天。否则并集合并会让删掉的记录复活。
+   3) 只有真正发生变化的记录才会刷新 _u（通过与上次成功同步的快照比对得出），
+      避免无所谓的时间戳把别人的改动顶掉。
+*/
+const TOMB_TTL = 30 * 24 * 3600 * 1000;
+const TOMB_KEY = 'wb_tombs';
+const SNAP_KEY = 'wb_snap';
+
+function loadTombs() {
+  try { return JSON.parse(localStorage.getItem(TOMB_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function saveTombs(t) { try { localStorage.setItem(TOMB_KEY, JSON.stringify(t || {})); } catch (e) {} }
+function loadSnap() {
+  try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function saveSnap(s) { try { localStorage.setItem(SNAP_KEY, JSON.stringify(s || {})); } catch (e) {} }
+function recKey(r) {
+  if (!r || typeof r !== 'object') return '';
+  if (r._id != null) return String(r._id);
+  if (r.id != null) return String(r.id);
+  return '';
+}
+/* 稳定哈希：用于把「没有 id 的历史数据」映射成确定性 id（不依赖顺序、两端一致） */
+function _hash32(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (h * 16777619) >>> 0; }
+  return h.toString(36);
+}
+
+function stripMeta(r) {
+  const o = {};
+  Object.keys(r || {}).forEach(function (k) { if (k !== '_u' && k !== '_d') o[k] = r[k]; });
+  return o;
+}
+
+/* 合并本地 / 云端记录数组。tombs 为本地已知的删除墓碑 {id: 时间戳}，会被就地更新 */
+function mergeRecords(localArr, cloudArr, tombs) {
+  tombs = tombs || {};
+  const m = {};
+  const absorb = function (arr) {
+    (Array.isArray(arr) ? arr : []).forEach(function (r) {
+      if (!r || typeof r !== 'object') return;
+      const id = recKey(r);
+      if (!id) return;
+      const u = Number(r._u) || 0;
+      const d = !!r._d;
+      const prev = m[id];
+      if (!prev) { m[id] = { r: r, u: u, d: d }; return; }
+      if (u > prev.u || (u === prev.u && d && !prev.d)) m[id] = { r: r, u: u, d: d };
+    });
+  };
+  absorb(cloudArr);
+  absorb(localArr);
+  const now = Date.now();
+  Object.keys(tombs).forEach(function (id) {
+    const tu = Number(tombs[id]) || 0;
+    if (now - tu > TOMB_TTL) { delete tombs[id]; return; }        // 墓碑过期，清理
+    const cur = m[String(id)];
+    if (cur && Number(cur.u) >= tu) { delete tombs[id]; return; } // 记录已被重新更新，墓碑作废
+    m[String(id)] = { r: { _id: id, _u: tu, _d: true }, u: tu, d: true };
+  });
+  const items = [];
+  const out = {};
+  Object.keys(m).forEach(function (id) {
+    const v = m[id];
+    if (v.d) { if (now - v.u <= TOMB_TTL) out[id] = v.u; return; }  // 墓碑不进入活动列表
+    const r = {};
+    Object.keys(v.r).forEach(function (k) { if (k !== '_d') r[k] = v.r[k]; });
+    if (!r._u) r._u = v.u;
+    items.push(r);
+  });
+  return { items: items, tombs: out };
+}
+
+/* 墓碑还原为可上传记录，让其他设备同步后也执行删除 */
+function tombsToRecords(tombs) {
+  const out = [];
+  Object.keys(tombs || {}).forEach(function (id) {
+    out.push({ _id: id, _u: Number(tombs[id]) || 0, _d: true });
+  });
+  return out;
+}
+
+/* 给「自上次成功同步以来发生变化」的记录刷新 _u，并更新快照 */
+function stampChanged(ns, arr) {
+  if (!Array.isArray(arr)) return arr;
+  const snap = loadSnap();
+  const prev = snap[ns] || {};
+  const now = Date.now();
+  const next = {};
+  arr.forEach(function (r) {
+    if (!r || typeof r !== 'object') return;
+    const id = recKey(r);
+    if (!id) return;
+    const sig = JSON.stringify(stripMeta(r));
+    if (prev[id] !== sig) r._u = now;      // 内容变了 → 刷新时间戳
+    else if (!r._u) r._u = now;            // 老数据补齐时间戳
+    next[id] = sig;
+  });
+  snap[ns] = next;
+  saveSnap(snap);
+  return arr;
+}
+
+/* 推送成功后把快照对齐到已上传内容：此后未改动的记录不再刷新时间戳 */
+function commitSnap(ns, arr) {
+  const snap = loadSnap();
+  const next = {};
+  (Array.isArray(arr) ? arr : []).forEach(function (r) {
+    const id = recKey(r);
+    if (id) next[id] = JSON.stringify(stripMeta(r));
+  });
+  snap[ns] = next;
+  saveSnap(snap);
+}
+
+/* 标记删除：写入墓碑，使其他设备同步后同样删除（而不是复活） */
+function markDeleted(ns, id) {
+  if (!id) return;
+  const t = loadTombs();
+  if (!t[ns] || typeof t[ns] !== 'object') t[ns] = {};
+  t[ns][String(id)] = Date.now();
+  saveTombs(t);
+}
+
+/* ============ reading 行级合并 ============
+   reading 的 rows 是「数组的数组」，本身没有 id，故用一条平行的 meta 数组
+   为每行保存 {_id,_u,_o}：_u 用于 LWW，_o 用于保持行顺序（新增置顶）。 */
+function readingEnsureMeta() {
+  if (!readingData || !Array.isArray(readingData.rows)) return;
+  if (!Array.isArray(readingData.meta)) readingData.meta = [];
+  const now = Date.now();
+  readingData.rows.forEach(function (v, i) {
+    let m = readingData.meta[i];
+    if (!m || typeof m !== 'object' || !m._id) {
+      // 内容指纹 id：与合并时对无 meta 的云端行生成的 id 一致，避免升级后记录重复
+      m = { _id: 'rh_' + _hash32(JSON.stringify(v)), _u: now, _o: i };
+      readingData.meta[i] = m;
+    }
+    if (typeof m._o !== 'number') m._o = i;
+    if (!m._u) m._u = now;
+  });
+  readingData.meta.length = readingData.rows.length;
+}
+
+function pushReadingRow(vals, toFront) {
+  const now = Date.now();
+  let ord = 0;
+  (readingData.meta || []).forEach(function (m) {
+    if (m && typeof m._o === 'number' && m._o < ord) ord = m._o;
+  });
+  const meta = { _id: 'r_' + now + '_' + Math.random().toString(36).slice(2, 8), _u: now, _o: ord - 1 };
+  if (toFront) { readingData.rows.unshift(vals); readingData.meta.unshift(meta); }
+  else { readingData.rows.push(vals); readingData.meta.push(meta); }
+}
+
+function deleteReadingRowAt(idx) {
+  const m = (readingData.meta || [])[idx];
+  if (m && m._id) markDeleted('reading', m._id);
+  readingData.rows.splice(idx, 1);
+  if (Array.isArray(readingData.meta)) readingData.meta.splice(idx, 1);
+}
+
+/* 刷新 reading 行的时间戳：内容变化的行才更新 _u */
+function stampReading() {
+  readingEnsureMeta();
+  const snap = loadSnap();
+  const prev = snap.reading || {};
+  const now = Date.now();
+  const next = {};
+  readingData.rows.forEach(function (v, i) {
+    const m = readingData.meta[i];
+    const sig = JSON.stringify(v);
+    if (prev[m._id] !== sig) m._u = now;
+    next[m._id] = sig;
+  });
+  snap.reading = next;
+  saveSnap(snap);
+}
+
+/* 合并 reading：把 rows+meta 打包成带 id 的记录做 LWW，再拆回 rows+meta */
+function mergeReadingPayload(local, cloud, tombs) {
+  const lRows = (local && Array.isArray(local.rows)) ? local.rows : [];
+  const lMeta = (local && Array.isArray(local.meta)) ? local.meta : [];
+  const cRows = (cloud && Array.isArray(cloud.rows)) ? cloud.rows : [];
+  const cMeta = (cloud && Array.isArray(cloud.meta)) ? cloud.meta : [];
+  const pack = function (rows, meta) {
+    return rows.map(function (v, i) {
+      const m = meta[i] || {};
+      return { _id: m._id || ('rh_' + _hash32(JSON.stringify(v))), _u: Number(m._u) || 0, _o: (typeof m._o === 'number' ? m._o : i), v: v };
+    });
+  };
+  const r = mergeRecords(pack(lRows, lMeta), pack(cRows, cMeta), tombs);
+  const list = r.items.slice().sort(function (a, b) {
+    const oa = (typeof a._o === 'number') ? a._o : 0;
+    const ob = (typeof b._o === 'number') ? b._o : 0;
+    if (oa !== ob) return oa - ob;
+    return (Number(a._u) || 0) - (Number(b._u) || 0);
+  });
+  return {
+    headers: (local && local.headers) || (cloud && cloud.headers) || [],
+    rows: list.map(function (x) { return x.v; }),
+    meta: list.map(function (x) { return { _id: x._id, _u: x._u, _o: (typeof x._o === 'number' ? x._o : 0) }; }),
+    tombs: r.tombs,
+    synced_at: Date.now()
+  };
+}
+
 /* ============ 工具函数 ============ */
 function toast(msg) {
   const t = document.getElementById('toast');
@@ -1635,7 +1892,7 @@ function loadDocs() {
   saveDocs(defaultDocs);
   return defaultDocs;
 }
-function saveDocs(docs) { localStorage.setItem('workbench_docs', JSON.stringify(docs)); (window.__dirty = window.__dirty || {}).docs = true; if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
+function saveDocs(docs) { stampChanged('docs', docs); localStorage.setItem('workbench_docs', JSON.stringify(docs)); (window.__dirty = window.__dirty || {}).docs = true; if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
 
 let docs = loadDocs();
 let docsState = { synced_at: Number(localStorage.getItem('wb_docs_synced') || 0) };
@@ -1735,6 +1992,7 @@ function toggleStar(id) {
   if (d) { d.star = !d.star; saveDocs(docs); renderCategories(); renderDocs(); toast(d.star ? '已收藏' : '已取消收藏'); }
 }
 function deleteDoc(id) {
+  markDeleted('docs', id);
   docs = docs.filter(x => x.id !== id);
   saveDocs(docs); renderCategories(); renderDocs(); toast('文档已删除');
 }
@@ -1899,8 +2157,65 @@ function statusToZh(st) {
   return m[st] || st;
 }
 function myStatusTag(st) {
-  const cls = st === '在看' ? 'v-status-watch' : st === '已看完' ? 'v-status-done' : st === '搁置' ? 'v-status-hold' : 'v-status-want';
+  const cls = st === '在看' ? 'v-status-watch'
+    : st === '已看完' ? 'v-status-done'
+    : st === '搁置' ? 'v-status-hold'
+    : st === 'SVIP/付费' ? 'v-status-svip'
+    : 'v-status-want';
   return '<span class="v-status-tag ' + cls + '">' + (st || '想看') + '</span>';
+}
+
+// --- 付费档位 + 更新排期 辅助函数 ---
+function tierTag(tier) {
+  if (!tier || tier === '免费') return '';
+  const cls = tier === 'SVIP' ? 'v-tier-svip' : 'v-tier-vip';
+  return '<span class="v-status-tag ' + cls + '">' + tier + '</span>';
+}
+function videoSchedDaily() {
+  for (let i = 0; i <= 6; i++) { const el = document.getElementById('we' + i); if (el) el.checked = true; }
+}
+function parseYMD(str) {
+  if (!str) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+  if (!m) return null;
+  return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+}
+function fmtMD(d) {
+  return String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+}
+function weekdayCN(d) {
+  return '周' + '日一二三四五六'[d.getDay()];
+}
+function scheduleLabel(sched) {
+  if (!sched) return '';
+  const sel = sched.weekdays || [];
+  if (sel.length === 0) return '更新时间不固定';
+  let wd;
+  if (sel.length === 7) wd = '每天';
+  else wd = sel.slice().sort().map(function(x){ return '日一二三四五六'[x]; }).join('/');
+  const time = sched.time || '';
+  const per = sched.perUpdate > 0 ? sched.perUpdate : 1;
+  return wd + (time ? ' ' + time : '') + ' · 每更 ' + per + ' 集';
+}
+function computeUpcoming(sched, count) {
+  if (!sched) return [];
+  const sel = sched.weekdays || [];
+  if (sel.length === 0) return [];
+  const per = sched.perUpdate > 0 ? sched.perUpdate : 1;
+  let ep = sched.startEp > 0 ? sched.startEp : 1;
+  let d = parseYMD(sched.startDate);
+  if (!d) return [];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const out = []; let guard = 0;
+  while (out.length < count && guard < 600) {
+    guard++;
+    if (d >= today && sel.indexOf(d.getDay()) !== -1) {
+      out.push({ date: new Date(d), fromEp: ep, toEp: ep + per - 1 });
+      ep += per;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
 }
 async function tmdbFetch(path, params) {
   const key = getTmdbKey();
@@ -1929,13 +2244,14 @@ async function tmdbFetch(path, params) {
 function parseTmdbShow(d, existing) {
   const lastEp = d.last_episode_to_air;
   const nextEp = d.next_episode_to_air;
+  const ex = existing || {};
   return {
-    id: (existing && existing.id) ? existing.id : ('v_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)),
+    id: ex.id ? ex.id : ('v_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)),
     tmdbId: d.id,
     name: d.name || d.original_name || '',
     poster: d.poster_path || '',
     overview: (d.overview || '').slice(0, 200),
-    totalEps: d.number_of_episodes || 0,
+    totalEps: ex.totalEps ? ex.totalEps : (d.number_of_episodes || 0),
     seasons: d.number_of_seasons || 0,
     airedEps: d.number_of_episodes || 0,
     status: d.status || '',
@@ -1944,8 +2260,11 @@ function parseTmdbShow(d, existing) {
     lastEpDate: (lastEp && lastEp.air_date) ? lastEp.air_date : '',
     nextEpText: nextEp ? ('S' + String(nextEp.season_number).padStart(2,'0') + 'E' + String(nextEp.episode_number).padStart(2,'0')) : '',
     nextEpDate: (nextEp && nextEp.air_date) ? nextEp.air_date : '',
-    myEp: existing ? (existing.myEp || 0) : 0,
-    myStatus: existing ? (existing.myStatus || '想看') : '想看',
+    myEp: ex.myEp || 0,
+    myStatus: ex.myStatus || '想看',
+    note: ex.note || '',
+    tier: ex.tier || '免费',
+    schedule: ex.schedule || null,
     lastFetched: Date.now()
   };
 }
@@ -1980,14 +2299,35 @@ function renderVideoCard(s, idx) {
   if (hasNew) badge = '<span class="v-badge new">有新集</span>';
   else if (s.statusZh === '更新中') badge = '<span class="v-badge ongoing">更新中</span>';
   else badge = '<span class="v-badge ended">' + s.statusZh + '</span>';
+  const tier = s.tier || '免费';
   let nextLine = '';
   if (s.nextEpDate) nextLine = '<div style="font-size:12px;color:var(--text-tertiary);margin-top:6px">下一集 ' + escapeHtml(s.nextEpText) + ' · ' + s.nextEpDate + '</div>';
   else if (s.lastEpDate) nextLine = '<div style="font-size:12px;color:var(--text-tertiary);margin-top:6px">最新 ' + escapeHtml(s.lastEpText) + ' · ' + s.lastEpDate + '</div>';
+  let schedHtml = '';
+  if (s.schedule && s.schedule.weekdays && s.schedule.weekdays.length) {
+    const tierBadge = tierTag(tier);
+    const ups = computeUpcoming(s.schedule, 4);
+    let listHtml;
+    if (ups.length) {
+      listHtml = ups.map(function(u){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);padding:3px 0;border-top:1px solid rgba(128,128,128,0.12)">' +
+          '<span>' + fmtMD(u.date) + ' ' + weekdayCN(u.date) + '　第' + u.fromEp + (u.toEp > u.fromEp ? ('–' + u.toEp) : '') + '集</span>' +
+          (tier !== '免费' ? tierBadge : '') +
+        '</div>';
+      }).join('');
+    } else {
+      listHtml = '<div style="font-size:12px;color:var(--text-tertiary);padding:3px 0">暂无未来更新（可能已完结或暂停）</div>';
+    }
+    schedHtml = '<div style="margin-top:8px;padding:8px 10px;background:var(--surface-2);border-radius:8px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:var(--text-secondary)">' +
+        '<span>更新计划 · ' + scheduleLabel(s.schedule) + '</span>' + (tier !== '免费' ? tierBadge : '') +
+      '</div>' + listHtml + '</div>';
+  }
   return '<div class="video-card">' + posterHtml +
     '<div style="flex:1;min-width:0">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">' +
         '<div style="min-width:0"><div style="font-weight:600;font-size:15px;word-break:break-word">' + escapeHtml(s.name) + '</div>' +
-        '<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px">' + s.seasons + '季 · 共' + s.totalEps + '集 · ' + myStatusTag(s.myStatus) + '</div></div>' +
+        '<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px">' + s.seasons + '季 · 共' + s.totalEps + '集 · ' + myStatusTag(s.myStatus) + (tier !== '免费' ? (' ' + tierTag(tier)) : '') + '</div></div>' +
         badge +
       '</div>' +
       '<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);margin-bottom:4px">' +
@@ -1995,6 +2335,8 @@ function renderVideoCard(s, idx) {
         '<span>' + (hasNew ? ('已更新到第 ' + s.airedEps + ' 集') : (s.totalEps > 0 ? (s.myEp + '/' + s.totalEps) : '')) + '</span>' +
       '</div><div class="v-progress"><div class="v-progress-fill" style="width:' + pct + '%"></div></div></div>' +
       nextLine +
+      schedHtml +
+      (s.note ? '<div style="margin-top:8px;font-size:12px;color:var(--text-tertiary);font-style:italic;word-break:break-word;line-height:1.5">📝 ' + escapeHtml(s.note) + '</div>' : '') +
       '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">' +
         '<button class="btn btn-sm btn-primary" onclick="videoEpPlus(' + idx + ')">+1集</button>' +
         '<button class="btn btn-sm btn-ghost" onclick="openVideoEdit(' + idx + ')">编辑</button>' +
@@ -2109,6 +2451,7 @@ function videoDelete(idx) {
   const s = videoData.shows[idx];
   if (!s) return;
   if (!confirm('确定从清单删除「' + s.name + '」吗？')) return;
+  markDeleted('video', s.id);
   videoData.shows.splice(idx, 1);
   saveVideo();
   renderVideoTable();
@@ -2120,7 +2463,17 @@ function openVideoEdit(idx) {
   _videoEditIdx = idx;
   document.getElementById('videoEditTitle').textContent = '编辑：' + s.name;
   document.getElementById('videoEditMyEp').value = s.myEp || 0;
+  document.getElementById('videoEditTotalEps').value = s.totalEps || 0;
   document.getElementById('videoEditMyStatus').value = s.myStatus || '想看';
+  document.getElementById('videoEditNote').value = s.note || '';
+  document.getElementById('videoEditTier').value = s.tier || '免费';
+  const sch = s.schedule || {};
+  const sel = sch.weekdays || [];
+  for (let i = 0; i <= 6; i++) { const el = document.getElementById('we' + i); if (el) el.checked = sel.indexOf(i) !== -1; }
+  document.getElementById('videoEditTime').value = sch.time || '20:00';
+  document.getElementById('videoEditPer').value = sch.perUpdate || 2;
+  document.getElementById('videoEditStartEp').value = sch.startEp || ((s.myEp || 0) + 1);
+  document.getElementById('videoEditStartDate').value = sch.startDate || (new Date().toISOString().slice(0,10));
   document.getElementById('videoEditModal').classList.add('show');
 }
 function closeVideoEdit() { document.getElementById('videoEditModal').classList.remove('show'); }
@@ -2128,7 +2481,24 @@ function saveVideoEdit() {
   const s = videoData.shows[_videoEditIdx];
   if (!s) return;
   s.myEp = parseInt(document.getElementById('videoEditMyEp').value) || 0;
+  const newTotal = parseInt(document.getElementById('videoEditTotalEps').value) || 0;
+  if (newTotal > 0) s.totalEps = newTotal;
   s.myStatus = document.getElementById('videoEditMyStatus').value;
+  s.note = document.getElementById('videoEditNote').value.trim();
+  s.tier = document.getElementById('videoEditTier').value || '免费';
+  const sel = [];
+  for (let i = 0; i <= 6; i++) { const el = document.getElementById('we' + i); if (el && el.checked) sel.push(i); }
+  if (sel.length === 0) {
+    s.schedule = null;
+  } else {
+    s.schedule = {
+      weekdays: sel,
+      time: document.getElementById('videoEditTime').value || '',
+      perUpdate: parseInt(document.getElementById('videoEditPer').value) || 1,
+      startEp: parseInt(document.getElementById('videoEditStartEp').value) || 1,
+      startDate: document.getElementById('videoEditStartDate').value || ''
+    };
+  }
   saveVideo();
   closeVideoEdit();
   renderVideoTable();
@@ -2166,15 +2536,6 @@ if (_tmdbKeyModalEl) _tmdbKeyModalEl.addEventListener('click', function(e){ if (
    每台设备首次使用时在页面左下角输入一次 PAT（存于浏览器本地，绝不上源码），
    之后任意改动会自动（防抖）推送到仓库，所有设备刷新即同步。 */
 try { window.__dirty = JSON.parse(localStorage.getItem('wb_dirty') || '{}'); } catch (e) { window.__dirty = {}; }
-function unionById(localArr, cloudArr, key) {
-  // 按 key 并集：本地覆盖云端同 id 项；无 id 时用内容指纹兜底，避免误合并
-  const m = {};
-  const put = (arr) => { (Array.isArray(arr) ? arr : []).forEach(function(x){
-    if (x && typeof x === 'object') { const k = (x[key] != null) ? x[key] : '__' + JSON.stringify(x); m[k] = x; }
-  }); };
-  put(cloudArr); put(localArr); // local 后放，覆盖云端
-  return Object.keys(m).map(function(k){ return m[k]; });
-}
 
 const GH = {
   owner: 'wulalala888',
@@ -2208,177 +2569,332 @@ const GH = {
   hasDirty() { return Object.keys(this.getDirty()).length > 0; },
   _b64decodeStr(s) { try { return decodeURIComponent(escape(atob(s))); } catch (e) { return atob(s); } },
   _tokenBad: false,
+  async _fetchJson(url, opts, timeoutMs) {
+    let ctrl = null, timer = null;
+    if (typeof AbortController !== 'undefined') {
+      ctrl = new AbortController();
+      if (timeoutMs) timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, timeoutMs);
+    }
+    try {
+      const res = await fetch(url, Object.assign({}, opts || {}, ctrl ? { signal: ctrl.signal } : {}));
+      if (!res || !res.ok) return null;
+      return await res.json();
+    } catch (e) { return null; }
+    finally { if (timer) clearTimeout(timer); }
+  },
+  /* 多源并发拉取：官方 API / raw / jsDelivr 同时发起。
+     哪个先到先用哪个（保证打开即出数据），后续到达的若版本更新则再校正一次。
+     这样即使国内直连 raw.githubusercontent.com 不稳定，也能通过 CDN 拿到数据。 */
+  async fetchCloudData(onBest) {
+    const self = this;
+    const token = this.getToken();
+    const bust = Date.now();
+    const srcs = [];
+    if (token) {
+      srcs.push((async function () {
+        const j = await self._fetchJson(self.apiUrl(), {
+          headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' }, cache: 'no-store'
+        }, 9000);
+        if (!j) return null;
+        try { return { data: JSON.parse(self._b64decodeStr(j.content)), sha: j.sha || null }; } catch (e) { return null; }
+      })());
+    }
+    srcs.push((async function () {
+      const d = await self._fetchJson(self.rawUrl() + '?' + bust, { cache: 'no-store' }, 9000);
+      return d ? { data: d, sha: null } : null;
+    })());
+    [['https://cdn.jsdelivr.net/gh/', '@'], ['https://fastly.jsdelivr.net/gh/', '@']].forEach(function (cfg) {
+      srcs.push((async function () {
+        const u = cfg[0] + self.owner + '/' + self.repo + cfg[1] + self.branch + '/' + self.path + '?' + bust;
+        const d = await self._fetchJson(u, { cache: 'no-store' }, 9000);
+        return d ? { data: d, sha: null } : null;
+      })());
+    });
+
+    let best = null;
+    const pick = function (r) {
+      if (!r || !r.data || typeof r.data !== 'object') return false;
+      if (r.sha) self._lastSha = r.sha;
+      const rv = Number(r.data._rev) || 0;
+      if (!best || rv > (Number(best.data._rev) || 0)) { best = r; return true; }
+      return false;
+    };
+    let arrived = 0, settled = 0;
+    const total = srcs.length;
+    await new Promise(function (resolve) {
+      let done = false;
+      const finish = function () { if (!done) { done = true; resolve(); } };
+      srcs.forEach(function (p) {
+        p.then(function (r) {
+          const better = pick(r);
+          settled++;
+          if (r) arrived++;
+          // 第一个可用结果到达 → 立即返回，让页面马上显示数据
+          if (r && !done) { finish(); return; }
+          // 后续若有更新版本 → 回调再校正一次
+          if (better && typeof onBest === 'function') { try { onBest(best.data); } catch (e) {} }
+          if (settled === total) finish();
+        }).catch(function () { settled++; if (settled === total) finish(); });
+      });
+      setTimeout(finish, 6000);
+    });
+    // 再给准确性最高的 API 源一点时间覆盖可能被 CDN 缓存的旧版本
+    if (best) {
+      await new Promise(function (r) { setTimeout(r, 1800); });
+      if (typeof onBest === 'function') { try { onBest(best.data); } catch (e) {} }
+    }
+    return best ? best.data : null;
+  },
+  /* 写入前必须拿到准确 sha，只能走官方 API */
   async getCurrent() {
     const token = this.getToken();
-    if (token) {
-      try {
-        const head = await fetch(this.apiUrl(), { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' } });
-        if (head.ok) { const j = await head.json(); return { data: JSON.parse(this._b64decodeStr(j.content)), sha: j.sha }; }
-        if (head.status === 404) return { data: null, sha: null };
-        if (head.status === 401 || head.status === 403) { this._tokenBad = true; }
-      } catch (e) {}
-      // 令牌无效或 API 读取失败 → 回退匿名 raw 读取（公开仓库可读）
-    }
+    if (!token) return { data: null, sha: null, noToken: true };
     try {
-      const res = await fetch(this.rawUrl(), { cache: 'no-store' });
-      if (!res.ok) return { data: null, sha: null };
-      return { data: await res.json(), sha: null };
-    } catch (e) { return { data: null, sha: null }; }
-  },
-  async fetchCloudData() {
-    // 优先匿名 raw 读取（公开仓库，无需令牌、最稳，不受令牌状态影响）
-    try {
-      const res = await fetch(this.rawUrl(), { cache: 'no-store' });
-      if (res.ok) return await res.json();
-    } catch (e) {}
-    // 回退：带鉴权 API（顺便探测令牌是否有效）
-    const token = this.getToken();
-    if (token) {
-      try {
-        const head = await fetch(this.apiUrl(), { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' } });
-        if (head.ok) { const j = await head.json(); return JSON.parse(this._b64decodeStr(j.content)); }
-        if (head.status === 401 || head.status === 403) this._tokenBad = true;
-      } catch (e) {}
-    }
-    return null;
+      const res = await fetch(this.apiUrl(), {
+        headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' }, cache: 'no-store'
+      });
+      if (res.ok) {
+        const j = await res.json();
+        this._tokenBad = false;
+        this._lastSha = j.sha || null;
+        try { return { data: JSON.parse(this._b64decodeStr(j.content)), sha: j.sha || null }; } catch (e) { return { data: null, sha: j.sha || null }; }
+      }
+      if (res.status === 404) return { data: null, sha: null };
+      if (res.status === 401 || res.status === 403) { this._tokenBad = true; return { data: null, sha: null, bad: true }; }
+    } catch (e) { return { data: null, sha: null, err: true }; }
+    return { data: null, sha: null, err: true };
   },
   buildLocalPayload() {
+    if (typeof docs !== 'undefined') stampChanged('docs', docs);
+    if (typeof videoData !== 'undefined' && videoData) stampChanged('video', videoData.shows);
+    if (typeof readingData !== 'undefined') { readingEnsureMeta(); stampReading(); }
+    if (typeof orders !== 'undefined') stampChanged('orders', orders);
     return {
       docs: { synced_at: (window.__docsState ? window.__docsState.synced_at : 0), items: (typeof docs !== 'undefined' ? docs : []) },
       video: (typeof videoData !== 'undefined' ? videoData : { shows: [], synced_at: 0 }),
-      reading: (typeof readingData !== 'undefined' ? readingData : { headers: [], rows: [], synced_at: 0 }),
+      reading: (typeof readingData !== 'undefined' ? {
+        headers: readingData.headers || [], rows: readingData.rows || [], meta: readingData.meta || [], synced_at: readingData.synced_at || 0
+      } : { headers: [], rows: [], meta: [], synced_at: 0 }),
       orders: { synced_at: (window.__ordersState ? window.__ordersState.synced_at : 0), items: (typeof orders !== 'undefined' ? orders : []) }
     };
   },
-  async push(force, _attempt = 0) {
+  deviceId() {
+    try {
+      let id = localStorage.getItem('wb_device_id');
+      if (!id) { id = 'd_' + Math.random().toString(36).slice(2, 10); localStorage.setItem('wb_device_id', id); }
+      return id;
+    } catch (e) { return 'd_unknown'; }
+  },
+  async push(force, _attempt = 0, keepalive) {
     const token = this.getToken();
-    if (!token) { this.updateStatus('未配置令牌，无法同步', false); return false; }
+    if (!token) { this.updateStatus('未配置令牌 · 仅本地', null); return false; }
     if (this._tokenBad) { this.updateStatus('令牌已失效，点「设置令牌」重填', false); return false; }
     if (!force && !this.hasDirty()) return true;
-    const dirty = Object.assign({}, this.getDirty());
-    let cur;
-    try { cur = await this.getCurrent(); } catch (e) { this.updateStatus('读取云端失败', false); return false; }
-    const cloud = cur.data;
-    const local = this.buildLocalPayload();
-    const now = Date.now();
-    const merged = { _rev: ((cloud && cloud._rev) || 0) + 1 };
-    ['docs', 'video', 'reading', 'orders'].forEach(f => {
-      const localF = local[f];
-      if (!cloud) { localF.synced_at = now; merged[f] = localF; return; }
-      const cloudF = cloud[f] || (f === 'video' ? { shows: [], synced_at: 0 } : f === 'reading' ? { headers: [], rows: [], synced_at: 0 } : { items: [] });
-      if (f === 'video') {
-        // 影视剧按 id 并集合并：本地新增永不被云端覆盖，也不误删云端其它设备数据
-        merged[f] = { shows: unionById(localF.shows || [], cloudF.shows || [], 'id'), synced_at: now };
-        return;
-      }
-      if (dirty[f]) { localF.synced_at = now; merged[f] = localF; }
-      else { merged[f] = cloudF; }
-    });
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(merged, null, 2))));
+    // 并发保护：已有推送在飞时，只标记「稍后再推一次」，不重复发起
+    if (this._pushing) { this._pushAgain = true; return false; }
+    this._pushing = true;
     try {
+      return await this._doPush(force, _attempt, keepalive);
+    } finally {
+      this._pushing = false;
+      if (this._pushAgain) { this._pushAgain = false; setTimeout(() => this.push(true), 150); }
+    }
+  },
+  /* 实际推送逻辑（递归重试走这里，避免被上面的并发保护拦截） */
+  async _doPush(force, _attempt = 0, keepalive) {
+    const token = this.getToken();
+    const dirty = Object.assign({}, this.getDirty());
+    try {
+      this.updateStatus('同步中…', null);
+      const cur = await this.getCurrent();
+      if (cur.noToken) { this.updateStatus('未配置令牌 · 仅本地', null); return false; }
+      if (cur.bad) { this.updateStatus('令牌已失效，点「设置令牌」重填', false); return false; }
+      if (cur.err && !keepalive) { this.updateStatus('读取云端失败', false); return false; }
+      const cloud = cur.data;
+      const local = this.buildLocalPayload();
+      const now = Date.now();
+      const tombsAll = loadTombs();
+      const merged = { _rev: ((cloud && cloud._rev) || 0) + 1, _ts: now, _dev: this.deviceId() };
+      ['docs', 'video', 'reading', 'orders'].forEach(function (f) {
+        const lf = local[f] || {};
+        const cf = (cloud && cloud[f]) || null;
+        if (!tombsAll[f] || typeof tombsAll[f] !== 'object') tombsAll[f] = {};
+        if (f === 'video') {
+          const r = mergeRecords(lf.shows || [], (cf && cf.shows) || [], tombsAll[f]);
+          tombsAll[f] = r.tombs;
+          merged[f] = { shows: r.items, synced_at: now };
+          return;
+        }
+        if (f === 'reading') {
+          const m = mergeReadingPayload(lf, cf, tombsAll[f]);
+          tombsAll[f] = m.tombs;
+          merged[f] = { headers: m.headers, rows: m.rows, meta: m.meta, synced_at: now };
+          return;
+        }
+        const r = mergeRecords(lf.items || [], (cf && cf.items) || [], tombsAll[f]);
+        tombsAll[f] = r.tombs;
+        merged[f] = { items: r.items, synced_at: now };
+      });
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(merged, null, 2))));
       const body = { message: 'sync: update data.json (rev ' + merged._rev + ')', content: content };
       if (cur.sha) body.sha = cur.sha;
       const res = await fetch(this.apiUrl(), {
         method: 'PUT',
         headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        keepalive: !!keepalive
       });
       if (res.ok) {
-        Object.keys(dirty).forEach(f => this.clearDirty(f));
+        saveTombs(tombsAll);
+        Object.keys(dirty).forEach((f) => this.clearDirty(f));
+        // 先把合并结果回写本地（若云端某条记录更新则采用之），再对齐快照。
+        // 顺序反了会让快照记录的是合并前的内容，导致下次误判为「有改动」。
+        this.applyCloud(merged, true);
+        if (typeof docs !== 'undefined') commitSnap('docs', docs);
+        if (typeof videoData !== 'undefined' && videoData) commitSnap('video', videoData.shows);
+        if (typeof readingData !== 'undefined') {
+          const snap = loadSnap(); const nr = {};
+          (readingData.rows || []).forEach(function (v, i) { const m = (readingData.meta || [])[i]; if (m) nr[m._id] = JSON.stringify(v); });
+          snap.reading = nr; saveSnap(snap);
+        }
+        if (typeof orders !== 'undefined') commitSnap('orders', orders);
         this.updateStatus('已同步 ✓ ' + this.fmt(now), true);
         return true;
       }
-      const txt = await res.text();
-      console.warn('gh push failed', res.status, txt);
-      // 冲突（云端已被其他设备改动）：重新读取最新版本并合并重试，最多 3 次
-      if ((res.status === 409 || res.status === 422) && _attempt < 3) {
+      const st = res.status;
+      // 冲突：云端已被其他设备改动 → 重新读取并合并后重试
+      if ((st === 409 || st === 422) && _attempt < 3) {
         this.updateStatus('云端有更新，正在合并…', null);
         await new Promise(r => setTimeout(r, 300 * (_attempt + 1)));
-        return this.push(force, _attempt + 1);
+        return this._doPush(force, _attempt + 1, keepalive);
       }
-      if (res.status === 401 || res.status === 403) this._tokenBad = true;
-      this.updateStatus('推送失败 (' + res.status + ')', false);
+      if (st === 401 || st === 403) { this._tokenBad = true; this.updateStatus('令牌已失效，点「设置令牌」重填', false); return false; }
+      // 其它失败（网络抖动等）→ 退避重试，保留 dirty，待网络恢复自动续传
+      if (_attempt < 3 && !keepalive) {
+        const delay = 1000 * Math.pow(2, _attempt);
+        this.updateStatus('推送失败(' + st + ')，' + Math.round(delay / 1000) + '秒后重试', false);
+        await new Promise(r => setTimeout(r, delay));
+        return this._doPush(force, _attempt + 1, keepalive);
+      }
+      this.updateStatus('推送失败 (' + st + ')', false);
       return false;
-    } catch (e) { console.warn('gh push error', e); this.updateStatus('推送错误', false); return false; }
+    } catch (e) {
+      if (_attempt < 3 && !keepalive) {
+        const delay = 1000 * Math.pow(2, _attempt);
+        this.updateStatus('网络异常，' + Math.round(delay / 1000) + '秒后重试', false);
+        await new Promise(r => setTimeout(r, delay));
+        return this._doPush(force, _attempt + 1, keepalive);
+      }
+      this.updateStatus('推送错误（离线将自动续传）', false);
+      return false;
+    }
   },
   async pull() {
     if (this._pulling) return this._pulling;
     this._pulling = (async () => {
       try {
-        const data = await this.fetchCloudData();
+        let got = false;
+        this.updateStatus('同步中…', null);
+        const data = await this.fetchCloudData((d) => {
+          if (this.applyCloud(d)) got = true;
+        });
+        if (data && this.applyCloud(data)) got = true;
         if (!data) {
           if (!this.getToken()) this.updateStatus('未配置令牌 · 仅本地', null);
           else if (this._tokenBad) this.updateStatus('令牌已失效，点「设置令牌」重填', false);
-          else this.updateStatus('拉取失败（网络/被拦截）', false);
+          else this.updateStatus('网络异常，恢复后自动同步', false);
           return false;
         }
-        this.applyCloud(data);
-        if (!this.getToken()) this.updateStatus('本地模式（已读云端）', null);
+        if (!this.getToken()) this.updateStatus('只读模式（未设令牌）', null);
         else this.updateStatus('已同步 ✓ ' + this.fmt(Date.now()), true);
         return true;
       } finally { this._pulling = null; }
     })();
     return this._pulling;
   },
-  applyCloud(data) {
+  /* 注意：这里不再用 dirty 阻断云端数据。
+     旧实现「本地有未推送改动就整段跳过云端」，一旦某次推送失败，
+     dirty 标记会长期留存，导致该板块再也不会同步——这正是「打开数据不同步、
+     必须手动刷新」的根因。现在改为记录级合并：本地未推送的改动与云端改动
+     按 _u 逐条合并，两边都不会丢。 */
+  applyCloud(data, fromPush) {
     if (!data || typeof data !== 'object') return false;
-    const dirty = this.getDirty();
     let changed = false;
-    const take = (f, applyFn) => {
-      if (!data[f] || dirty[f]) return;
-      if (applyFn(data[f])) changed = true;
-    };
-    take('docs', (cf) => {
-      if (!Array.isArray(cf.items)) return false;
-      if (JSON.stringify(cf.items) === JSON.stringify(typeof docs !== 'undefined' ? docs : [])) return false;
-      docs = cf.items;
-      if (window.__docsState) window.__docsState.synced_at = cf.synced_at || 0;
-      try { localStorage.setItem('workbench_docs', JSON.stringify(docs)); } catch (e) {}
-      if (typeof renderCategories === 'function') renderCategories();
-      if (typeof renderDocs === 'function') renderDocs();
-      return true;
-    });
-    // video：始终按 id 并集合并（即使本地有未推送改动也不丢失），云端新增也会并入本地
-    if (data.video && Array.isArray(data.video.shows)) {
-      const local = (typeof videoData !== 'undefined' ? videoData : { shows: [], synced_at: 0 });
-      const mergedShows = unionById(local.shows || [], data.video.shows || [], 'id');
-      if (JSON.stringify(mergedShows) !== JSON.stringify(local.shows || [])) {
-        videoData = { shows: mergedShows, synced_at: (data.video.synced_at || local.synced_at || 0) };
+    const tombsAll = loadTombs();
+
+    if (data.docs && Array.isArray(data.docs.items) && typeof docs !== 'undefined') {
+      if (!tombsAll.docs || typeof tombsAll.docs !== 'object') tombsAll.docs = {};
+      const r = mergeRecords(docs || [], data.docs.items, tombsAll.docs);
+      tombsAll.docs = r.tombs;
+      if (JSON.stringify(r.items) !== JSON.stringify(docs || [])) {
+        docs = r.items;
+        if (window.__docsState) window.__docsState.synced_at = data.docs.synced_at || 0;
+        try { localStorage.setItem('workbench_docs', JSON.stringify(docs)); } catch (e) {}
+        if (typeof renderCategories === 'function') renderCategories();
+        if (typeof renderDocs === 'function') renderDocs();
+        changed = true;
+      }
+    }
+
+    if (data.video && Array.isArray(data.video.shows) && typeof videoData !== 'undefined') {
+      if (!tombsAll.video || typeof tombsAll.video !== 'object') tombsAll.video = {};
+      const r = mergeRecords((videoData && videoData.shows) || [], data.video.shows, tombsAll.video);
+      tombsAll.video = r.tombs;
+      if (JSON.stringify(r.items) !== JSON.stringify((videoData && videoData.shows) || [])) {
+        videoData = { shows: r.items, synced_at: data.video.synced_at || 0 };
         try { localStorage.setItem(VIDEO_KEY, JSON.stringify(videoData)); } catch (e) {}
         if (typeof renderVideoTable === 'function') renderVideoTable();
         changed = true;
       }
     }
-    take('reading', (cf) => {
-      if (!Array.isArray(cf.rows)) return false;
-      const local = (typeof readingData !== 'undefined' ? readingData : { headers: [], rows: [] });
-      const localHeaders = Array.isArray(local.headers) ? local.headers : [];
-      const cloudHeaders = Array.isArray(cf.headers) ? cf.headers : [];
-      // schema guard: 仅当表头与当前结构一致时才采用云端数据，避免旧结构覆盖新模板
-      if (JSON.stringify(cloudHeaders) !== JSON.stringify(localHeaders)) return false;
-      if (JSON.stringify(cf.rows) === JSON.stringify(local.rows)) return false;
-      readingData = { headers: cloudHeaders, rows: cf.rows || [], synced_at: cf.synced_at || 0 };
-      try { localStorage.setItem(READING_KEY, JSON.stringify(readingData)); } catch (e) {}
-      if (typeof renderReadingTable === 'function') renderReadingTable();
-      return true;
-    });
-    take('orders', (cf) => {
-      if (!Array.isArray(cf.items)) return false;
-      if (JSON.stringify(cf.items) === JSON.stringify(typeof orders !== 'undefined' ? orders : [])) return false;
-      orders = cf.items;
-      if (window.__ordersState) window.__ordersState.synced_at = cf.synced_at || 0;
-      try { localStorage.setItem('wb_orders', JSON.stringify(orders)); } catch (e) {}
-      if (typeof renderOrders === 'function') renderOrders();
-      return true;
-    });
+
+    if (data.reading && Array.isArray(data.reading.rows) && typeof readingData !== 'undefined') {
+      const localHeaders = Array.isArray(readingData.headers) ? readingData.headers : [];
+      const cloudHeaders = Array.isArray(data.reading.headers) ? data.reading.headers : [];
+      // schema guard：表头结构不一致时不采用云端数据，避免旧结构覆盖新模板
+      if (JSON.stringify(cloudHeaders) === JSON.stringify(localHeaders)) {
+        if (!tombsAll.reading || typeof tombsAll.reading !== 'object') tombsAll.reading = {};
+        const m = mergeReadingPayload(readingData, data.reading, tombsAll.reading);
+        tombsAll.reading = m.tombs;
+        if (JSON.stringify(m.rows) !== JSON.stringify(readingData.rows || [])) {
+          readingData = { headers: cloudHeaders, rows: m.rows, meta: m.meta, synced_at: data.reading.synced_at || 0 };
+          try { localStorage.setItem(READING_KEY, JSON.stringify(readingData)); } catch (e) {}
+          if (typeof renderReadingTable === 'function') renderReadingTable();
+          changed = true;
+        }
+      }
+    }
+
+    if (data.orders && Array.isArray(data.orders.items) && typeof orders !== 'undefined') {
+      if (!tombsAll.orders || typeof tombsAll.orders !== 'object') tombsAll.orders = {};
+      const r = mergeRecords(orders || [], data.orders.items, tombsAll.orders);
+      tombsAll.orders = r.tombs;
+      if (JSON.stringify(r.items) !== JSON.stringify(orders || [])) {
+        orders = r.items;
+        if (window.__ordersState) window.__ordersState.synced_at = data.orders.synced_at || 0;
+        try { localStorage.setItem('wb_orders', JSON.stringify(orders)); } catch (e) {}
+        if (typeof renderOrders === 'function') renderOrders();
+        changed = true;
+      }
+    }
+
+    saveTombs(tombsAll);
+    // 云端有新内容，而本地还留有未推送的改动 → 合并后回推一次，让各设备尽快收敛
+    if (changed && !fromPush && this.hasDirty() && this.getToken() && !this._tokenBad) this.schedulePush();
     return changed;
   },
   schedulePush() {
     if (this._pushTimer) clearTimeout(this._pushTimer);
     this._pushTimer = setTimeout(() => { this._pushTimer = null; this.push(); }, 800);
   },
+  /* 离开页面 / 切到后台时立刻补推未完成的改动（keepalive 让请求在页面卸载后仍能发出） */
+  flush() {
+    if (this.hasDirty() && this.getToken() && !this._tokenBad) {
+      try { this.push(true, 0, true); } catch (e) {}
+    }
+  },
   init() {
-    // 恢复刷新前未推送成功的本地改动标记（关键：避免刷新后被云端覆盖丢失）
+    // 恢复刷新前未推送成功的本地改动标记
     try {
       const _saved = JSON.parse(localStorage.getItem('wb_dirty') || '{}');
       if (_saved && typeof _saved === 'object') { window.__dirty = Object.assign({}, window.__dirty || {}, _saved); }
@@ -2395,14 +2911,23 @@ const GH = {
       });
       document.body.appendChild(bar);
     }
-    bar.innerHTML = `<span id="ghSyncStatus">同步: ${this.getToken() ? '已配置' : '未配置令牌'}</span>` +
-      `<button id="ghSyncBtn" class="gh-token-btn">设置令牌</button>`;
-    document.getElementById('ghSyncBtn').addEventListener('click', () => { openTokenModal(); });
-    // 自动拉取：每 15 秒 + 页面重新可见时；关闭页面前补推未完成的改动
-    this._pullTimer = setInterval(() => this.pull(), 15000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { this.pull(); if (this.hasDirty()) this.push(); } });
-    window.addEventListener('beforeunload', () => { if (this.hasDirty() && this.getToken()) { try { this.push(); } catch (e) {} } });
-    // 恢复网络时自动补拉+补推（离线编辑后回到在线，像 app 一样自动续传）
+    bar.innerHTML = '<span id="ghSyncStatus">同步: ' + (this.getToken() ? '已配置' : '未配置令牌') + '</span>' +
+      '<button id="ghSyncBtn" class="gh-token-btn">设置令牌</button>';
+    const btn = document.getElementById('ghSyncBtn');
+    if (btn) btn.addEventListener('click', () => { openTokenModal(); });
+    // 打开即同步：拉取云端最新数据并回补本地
+    // 之后每 10 秒轮询（页面在后台时不轮询，省电省流量）
+    if (this._pullTimer) clearInterval(this._pullTimer);
+    this._pullTimer = setInterval(() => { if (!document.hidden) this.pull(); }, 10000);
+    // 切回前台：立即拉取 + 补推
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) { this.pull().then(() => { if (this.hasDirty()) this.push(true); }); }
+      else { this.flush(); }
+    });
+    // 关闭/隐藏页面前立即补推，避免最后几秒的改动丢失
+    window.addEventListener('pagehide', () => this.flush());
+    window.addEventListener('beforeunload', () => this.flush());
+    // 恢复网络：自动补拉 + 补推（离线期间的改动自动续传）
     window.addEventListener('online', () => { this.pull().then(() => { if (this.hasDirty()) this.push(true); }); });
     return this.pull().then(() => { if (this.hasDirty()) return this.push(true); });
   }
@@ -2422,10 +2947,13 @@ ensureReadingSchema();
 renderReadingTable();
 
 function loadReading() {
-  try { return JSON.parse(localStorage.getItem(READING_KEY)) || { headers: [], rows: [] }; }
-  catch(e) { return { headers: [], rows: [] }; }
+  try {
+    const d = JSON.parse(localStorage.getItem(READING_KEY)) || { headers: [], rows: [] };
+    if (!Array.isArray(d.meta)) d.meta = [];
+    return d;
+  } catch(e) { return { headers: [], rows: [], meta: [] }; }
 }
-function saveReading() { localStorage.setItem(READING_KEY, JSON.stringify(readingData)); (window.__dirty = window.__dirty || {}).reading = true; if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
+function saveReading() { readingEnsureMeta(); stampReading(); localStorage.setItem(READING_KEY, JSON.stringify(readingData)); (window.__dirty = window.__dirty || {}).reading = true; if (typeof window.ghSchedulePush === 'function') window.ghSchedulePush(); }
 
 /* CSV 解析：支持逗号/制表符分隔，支持带引号字段 */
 function parseCsv(text) {
@@ -2511,7 +3039,7 @@ function escapeHtml(s) {
 function ensureReadingSchema() {
   if (!readingData || !Array.isArray(readingData.headers) ||
       JSON.stringify(readingData.headers) !== JSON.stringify(READING_FIELDS)) {
-    readingData = { headers: READING_FIELDS.slice(), rows: [] };
+    readingData = { headers: READING_FIELDS.slice(), rows: [], meta: [] };
     saveReading();
   }
 }
@@ -2546,7 +3074,7 @@ function closeReadingAdd() { document.getElementById('readingAddModal').classLis
 function saveReadingRecord() {
   const vals = READING_FIELDS.map(f => { const el = document.getElementById('rf-' + f); return el ? el.value.trim() : ''; });
   if (_readingEditIdx >= 0) readingData.rows[_readingEditIdx] = vals;
-  else readingData.rows.unshift(vals);
+  else pushReadingRow(vals, true);
   saveReading();
   closeReadingAdd();
   renderReadingTable();
@@ -2555,7 +3083,7 @@ function saveReadingRecord() {
 
 function deleteReadingRecord(i) {
   if (!confirm('确定删除这条记录吗？')) return;
-  readingData.rows.splice(i, 1);
+  deleteReadingRowAt(i);
   saveReading();
   renderReadingTable();
   toast('已删除记录');
@@ -2807,7 +3335,7 @@ function saveCellEdit(el) {
 
 /* 删除行 */
 function deleteReadingRow(idx) {
-  readingData.rows.splice(idx, 1);
+  deleteReadingRowAt(idx);
   saveReading();
   syncToCloud();
   renderReadingTable();
@@ -2817,7 +3345,7 @@ function deleteReadingRow(idx) {
 /* 添加新行 */
 function addReadingRow() {
   const newRow = readingData.headers.map(() => '');
-  readingData.rows.push(newRow);
+  pushReadingRow(newRow, false);
   saveReading();
   syncToCloud();
   renderReadingTable();
@@ -2844,7 +3372,7 @@ function importCsv() {
     if (readingData.headers.length === 0) {
       readingData = parsed;
     } else {
-      parsed.rows.forEach(row => readingData.rows.push(row));
+      parsed.rows.forEach(row => pushReadingRow(row, false));
     }
   }
   saveReading();
@@ -2910,7 +3438,8 @@ function exportReadingCsv() {
 function clearReading() {
   if (readingData.rows.length === 0) { toast('表格已是空的'); return; }
   if (!confirm('确定清空所有阅读清单数据？此操作不可撤销。')) return;
-  readingData = { headers: [], rows: [] };
+  (readingData.meta || []).forEach(function (m) { if (m && m._id) markDeleted('reading', m._id); });
+  readingData = { headers: READING_FIELDS.slice(), rows: [], meta: [] };
   saveReading();
   renderReadingTable();
   toast('已清空');
@@ -2934,9 +3463,12 @@ window.addEventListener('DOMContentLoaded', () => {
   renderVideoTable();
   // 先显示本地存储的同步时间
   if (readingData.synced_at) updateSyncTimeDisplay(readingData.synced_at);
-  // 云端同步初始化：拉取 data.json 并渲染同步状态栏
+  // 云端同步初始化：打开即拉取最新数据（多源并发，任一源可达即可），
+  // 拿到后立即重渲染；本地未推送的改动会在合并后自动回推。
   GH.init().then(() => {
     updateSyncTimeDisplay(Date.now());
+    renderVideoTable();
+    if (typeof renderReadingTable === 'function') renderReadingTable();
   });
   // 恢复上次访问的视图
   let lastView = 'dashboard';
