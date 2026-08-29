@@ -2552,6 +2552,14 @@ const GH = {
     else localStorage.removeItem(this.tokenKey);
   },
   rawUrl() { return `https://raw.githubusercontent.com/${this.owner}/${this.repo}/${this.branch}/${this.path}`; },
+  // 与页面同域，能打开页面就一定能取到数据，且缓存刷新最快
+  pagesUrl() { return `https://${this.owner}.github.io/${this.repo}/${this.path}`; },
+  /* 校验云端数据确实是我们的数据结构。
+     曾发生 data.json 被误写入整页 HTML 的事故，若不校验会把 HTML 当数据处理。 */
+  _validData(d) {
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return false;
+    return (typeof d._rev === 'number') || !!(d.docs || d.video || d.reading || d.orders);
+  },
   apiUrl() { return `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${this.path}`; },
   fmt(ts) {
     if (!ts) return '';
@@ -2590,24 +2598,34 @@ const GH = {
     const token = this.getToken();
     const bust = Date.now();
     const srcs = [];
+    // 1) GitHub Pages 同源：与页面同域名，可达性最好，缓存刷新远快于 jsDelivr
+    srcs.push((async function () {
+      const d = await self._fetchJson(self.pagesUrl() + '?' + bust, { cache: 'no-store' }, 9000);
+      return self._validData(d) ? { data: d, sha: null } : null;
+    })());
+    // 2) 官方 API：最权威、无缓存；需要令牌
     if (token) {
       srcs.push((async function () {
         const j = await self._fetchJson(self.apiUrl(), {
           headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' }, cache: 'no-store'
         }, 9000);
         if (!j) return null;
-        try { return { data: JSON.parse(self._b64decodeStr(j.content)), sha: j.sha || null }; } catch (e) { return null; }
+        try {
+          const d = JSON.parse(self._b64decodeStr(j.content));
+          return self._validData(d) ? { data: d, sha: j.sha || null } : null;
+        } catch (e) { return null; }
       })());
     }
+    // 3) raw：内容最新，但国内常被阻断
     srcs.push((async function () {
       const d = await self._fetchJson(self.rawUrl() + '?' + bust, { cache: 'no-store' }, 9000);
-      return d ? { data: d, sha: null } : null;
+      return self._validData(d) ? { data: d, sha: null } : null;
     })());
     [['https://cdn.jsdelivr.net/gh/', '@'], ['https://fastly.jsdelivr.net/gh/', '@']].forEach(function (cfg) {
       srcs.push((async function () {
         const u = cfg[0] + self.owner + '/' + self.repo + cfg[1] + self.branch + '/' + self.path + '?' + bust;
         const d = await self._fetchJson(u, { cache: 'no-store' }, 9000);
-        return d ? { data: d, sha: null } : null;
+        return self._validData(d) ? { data: d, sha: null } : null;
       })());
     });
 
